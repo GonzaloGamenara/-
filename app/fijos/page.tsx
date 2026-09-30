@@ -15,8 +15,9 @@ import { MigrationNotice } from "@/components/MigrationNotice";
 import { Sheet } from "@/components/Sheet";
 import { usePrelaunch } from "@/components/LaunchGate";
 import { ChevronRight, PlusIcon } from "@/components/Icons";
+import { CuotasCalcSheet } from "@/components/CuotasCalc";
 
-type Adding = null | "menu";
+type Adding = null | "menu" | "calc";
 
 export default function Fijos() {
   const { recurring, categories, saveRecurring, txs, month, cards, purchases, openPurchase, needsMigration } = useStore();
@@ -202,6 +203,7 @@ export default function Fijos() {
                 go: () => (cards.length ? openPurchase({ cardId: cards[0].id }) : setCardForm({ due_day: 10 })),
                 hidden: needsMigration,
               },
+              { e: "🧮", t: "¿Me conviene en cuotas?", d: "Compará contado vs cuotas antes de comprar", go: () => setAdding("calc") },
               { e: "🪪", t: "Tarjeta", d: "Con su día de pago, para sumarle cuotas y suscripciones", go: () => setCardForm({ due_day: 10 }), hidden: needsMigration },
             ]
               .filter((o) => !o.hidden)
@@ -210,7 +212,7 @@ export default function Fijos() {
                   key={o.t}
                   onClick={() => {
                     setAdding(null);
-                    o.go();
+                    setTimeout(o.go, 0);
                   }}
                   className="press flex items-center gap-3 rounded-2xl bg-inset px-4 py-3.5 text-left"
                 >
@@ -236,6 +238,7 @@ export default function Fijos() {
           }}
         />
       )}
+      {adding === "calc" && <CuotasCalcSheet onClose={() => setAdding(null)} />}
       {cardForm && <CardForm initial={cardForm} onClose={() => setCardForm(null)} />}
     </div>
   );

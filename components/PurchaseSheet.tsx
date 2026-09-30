@@ -11,6 +11,7 @@ import { MonthStepper } from "./MonthStepper";
 import { SplitEditor, splitIsValid } from "./SplitEditor";
 import { usePrelaunch } from "./LaunchGate";
 import { MinusIcon, PlusIcon, TrashIcon } from "./Icons";
+import { CuotasVerdict } from "./CuotasCalc";
 
 const QUICK = [1, 3, 6, 12, 18, 24];
 const fmt = (n: number) => new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 }).format(n);
@@ -20,13 +21,16 @@ export function PurchaseSheet() {
   const { purchaseSheet, closePurchase, cards, splits, savePurchase, deletePurchase } = useStore();
   const prelaunch = usePrelaunch();
   const editing = purchaseSheet.purchase ?? null;
+  const prefill = purchaseSheet.prefill;
 
   const [cardId, setCardId] = useState(editing?.card_id ?? purchaseSheet.cardId ?? cards[0]?.id ?? "");
   const card = cards.find((c) => c.id === cardId);
-  const [desc, setDesc] = useState(editing?.description ?? "");
+  const [desc, setDesc] = useState(editing?.description ?? prefill?.description ?? "");
   const [mode, setMode] = useState<"total" | "cuota">("total");
-  const [amountRaw, setAmountRaw] = useState(editing ? fmt(editing.total_amount) : "");
-  const [n, setN] = useState(editing?.installments ?? 1);
+  const [amountRaw, setAmountRaw] = useState(editing ? fmt(editing.total_amount) : prefill?.total_amount ? fmt(prefill.total_amount) : "");
+  const [n, setN] = useState(editing?.installments ?? prefill?.installments ?? 1);
+  const [compare, setCompare] = useState(false);
+  const [contadoRaw, setContadoRaw] = useState("");
   const [paid, setPaid] = useState(editing ? editing.from_installment - 1 : 0);
   const [started, setStarted] = useState(editing ? editing.from_installment > 1 : false);
   const minPeriod = prelaunch ? launchMonth() : undefined;
@@ -198,6 +202,30 @@ export function PurchaseSheet() {
               </>
             )}
           </p>
+        )}
+
+        {n > 1 && !started && (
+          <div className="grid gap-3 rounded-2xl border border-line p-3">
+            <button type="button" onClick={() => setCompare((v) => !v)} className="flex items-center justify-between text-left text-sm font-medium">
+              ¿Me conviene en cuotas o de contado?
+              <span className="text-accent2">{compare ? "Ocultar" : "Comparar"}</span>
+            </button>
+            {compare && (
+              <>
+                <label className="grid gap-1.5 text-sm text-muted">
+                  Precio de contado
+                  <input
+                    value={contadoRaw}
+                    onChange={(e) => setContadoRaw(e.target.value)}
+                    inputMode="decimal"
+                    placeholder="$ 0"
+                    className="num w-full rounded-xl border border-line bg-inset px-4 py-3 text-fg placeholder:text-muted/60 focus:border-accent2"
+                  />
+                </label>
+                <CuotasVerdict contado={parseAmount(contadoRaw)} total={total} cuotas={n} />
+              </>
+            )}
+          </div>
         )}
 
         <div className="grid gap-1.5">

@@ -77,6 +77,8 @@ export interface PurchaseSheetState {
   open: boolean;
   purchase?: Purchase | null;
   cardId?: string | null;
+  /** Valores iniciales para una compra nueva (ej: desde la calculadora de cuotas) */
+  prefill?: { total_amount?: number; installments?: number; description?: string };
 }
 
 interface Store {
@@ -85,6 +87,9 @@ interface Store {
   /** Alias de Mercado Pago/CBU para cobrar gastos divididos */
   alias: string;
   saveAlias: (alias: string) => Promise<void>;
+  /** Tu nombre como lo ven los demás en una cuenta compartida */
+  displayName: string;
+  saveDisplayName: (name: string) => Promise<void>;
   /** Nombres usados antes al dividir (para sugerirlos) */
   recentNames: string[];
   loading: boolean;
@@ -190,6 +195,7 @@ export function DataProvider({
   children: ReactNode;
 }) {
   const [alias, setAlias] = useState(initialAlias);
+  const [displayName, setDisplayName] = useState("");
   // El alias puede haberse cambiado desde otro dispositivo: lo refrescamos del servidor
   useEffect(() => {
     supabase()
@@ -197,6 +203,8 @@ export function DataProvider({
       .then(({ data }) => {
         const a = data.user?.user_metadata?.alias;
         if (typeof a === "string") setAlias(a);
+        const n = data.user?.user_metadata?.name;
+        if (typeof n === "string") setDisplayName(n);
       });
   }, []);
   const prelaunch = usePrelaunch();
@@ -681,6 +689,16 @@ export function DataProvider({
     [toast],
   );
 
+  const saveDisplayName = useCallback(
+    async (value: string) => {
+      const clean = value.trim();
+      const { error } = await supabase().auth.updateUser({ data: { name: clean } });
+      if (error) return toast("No se pudo guardar tu nombre: " + error.message);
+      setDisplayName(clean);
+    },
+    [toast],
+  );
+
   const recentNames = useMemo(() => {
     const seen = new Map<string, string>();
     for (const x of splits) {
@@ -737,6 +755,8 @@ export function DataProvider({
     email,
     alias,
     saveAlias,
+    displayName,
+    saveDisplayName,
     recentNames,
     loading,
     month,

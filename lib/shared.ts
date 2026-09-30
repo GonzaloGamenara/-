@@ -6,6 +6,8 @@ export interface SharedGroup {
   category_id: string | null;
   occurred_on: string;
   transaction_id: string | null;
+  /** Código del link público (null = no compartida) */
+  share_token?: string | null;
 }
 export interface SharedMember {
   id: string;

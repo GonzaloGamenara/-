@@ -12,6 +12,7 @@ import { Sheet } from "@/components/Sheet";
 import { PeopleInput } from "@/components/PeopleInput";
 import { CategoryChips } from "@/components/CategoryChips";
 import { SharedExpenseSheet } from "@/components/SharedExpenseSheet";
+import { ShareGroupSheet } from "@/components/ShareGroupSheet";
 import { ChevronLeft, PlusIcon, XIcon } from "@/components/Icons";
 
 export default function GroupPage() {
@@ -22,6 +23,7 @@ export default function GroupPage() {
   const [expenseSheet, setExpenseSheet] = useState<{ initial: SharedExpense | null } | null>(null);
   const [addingPeople, setAddingPeople] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   const g = groups.find((x) => x.id === id);
   const ms = useMemo(() => members.filter((m) => m.group_id === id), [members, id]);
@@ -58,9 +60,14 @@ export default function GroupPage() {
             {cat && ` · ${cat.emoji} ${cat.name}`}
           </p>
         </div>
-        <button onClick={() => setEditing(true)} className="press shrink-0 rounded-full bg-surface px-3.5 py-2 text-sm font-medium">
-          Editar
-        </button>
+        <div className="flex shrink-0 gap-1.5">
+          <button onClick={() => setSharing(true)} className="press rounded-full bg-accent2 px-3.5 py-2 text-sm font-semibold text-black">
+            {g.share_token ? "Link" : "Compartir"}
+          </button>
+          <button onClick={() => setEditing(true)} className="press rounded-full bg-surface px-3.5 py-2 text-sm font-medium">
+            Editar
+          </button>
+        </div>
       </header>
 
       {/* Resumen */}
@@ -224,6 +231,7 @@ export default function GroupPage() {
         </section>
       )}
 
+      {sharing && <ShareGroupSheet groupId={g.id} groupName={g.name} token={g.share_token} onClose={() => setSharing(false)} />}
       {expenseSheet && <SharedExpenseSheet groupId={g.id} members={ms} initial={expenseSheet.initial} onClose={() => setExpenseSheet(null)} />}
 
       {addingPeople && (

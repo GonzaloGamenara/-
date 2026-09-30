@@ -24,6 +24,9 @@ interface SharedStore {
   saveExpense: (e: Omit<SharedExpense, "id"> & { id?: string }) => Promise<boolean>;
   deleteExpense: (id: string) => Promise<void>;
   addPayment: (p: Omit<SharedPayment, "id" | "paid_on">) => Promise<void>;
+  /** Crea (o devuelve) el link público de la cuenta; null si falta la migración 004 */
+  shareGroup: (id: string) => Promise<string | null>;
+  unshareGroup: (id: string) => Promise<void>;
   deletePayment: (id: string) => Promise<void>;
 }
 
@@ -50,7 +53,7 @@ export function SharedProvider({ children }: { children: ReactNode }) {
   const fetchAll = useCallback(async () => {
     const db = supabase();
     const [g, m, e, p] = await Promise.all([
-      db.from("shared_groups").select("id,name,category_id,occurred_on,transaction_id").order("occurred_on", { ascending: false }),
+      db.from("shared_groups").select("*").order("occurred_on", { ascending: false }),
       db.from("shared_members").select("id,group_id,name,is_me").order("created_at"),
       db.from("shared_expenses").select("id,group_id,payer_id,amount,description,among").order("created_at"),
       db.from("shared_payments").select("id,group_id,from_id,to_id,amount,paid_on").order("created_at"),
@@ -236,6 +239,32 @@ export function SharedProvider({ children }: { children: ReactNode }) {
     [fetchAll, toast],
   );
 
+  const shareGroup = useCallback(
+    async (id: string) => {
+      const g = groups.find((x) => x.id === id);
+      if (g?.share_token) return g.share_token;
+      const token = uid();
+      const { error } = await supabase().from("shared_groups").update({ share_token: token }).eq("id", id);
+      if (error) {
+        toast(/share_token/.test(error.message) ? "Falta correr la migración 004 en Supabase" : error.message);
+        return null;
+      }
+      await fetchAll();
+      return token;
+    },
+    [groups, fetchAll, toast],
+  );
+
+  const unshareGroup = useCallback(
+    async (id: string) => {
+      const { error } = await supabase().from("shared_groups").update({ share_token: null }).eq("id", id);
+      if (error) return toast(error.message);
+      toast("El link dejó de funcionar");
+      await fetchAll();
+    },
+    [fetchAll, toast],
+  );
+
   // Tu saldo total sumando todas las cuentas
   const myNet = useMemo(() => {
     let total = 0;
@@ -270,6 +299,8 @@ export function SharedProvider({ children }: { children: ReactNode }) {
     deleteExpense,
     addPayment,
     deletePayment,
+    shareGroup,
+    unshareGroup,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
