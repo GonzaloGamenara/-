@@ -17,6 +17,7 @@ import {
   currentMonth,
   dueDate,
   monthEnd,
+  monthLabel,
   monthStart,
   todayISO,
   uid,
@@ -248,7 +249,8 @@ export function DataProvider({
         writeJSON(snapKey(userId, m), { catList, recList, txData });
         loadedFor.current = m;
         flushQueue();
-      } catch {
+      } catch (e) {
+        const reason = (e as { message?: string })?.message ?? "";
         // Sin conexión: mostramos la última foto guardada
         const snap = readJSON<{ catList: Category[]; recList: Recurring[]; txData: Transaction[] } | null>(
           snapKey(userId, m),
@@ -259,9 +261,10 @@ export function DataProvider({
           setRecurring(snap.recList);
           const q = readJSON<Transaction[]>(queueKey(userId), []).map((t) => ({ ...t, pending: true }));
           setAllTxs([...q, ...snap.txData]);
-          toast("Sin conexión · mostrando datos guardados");
+          if (isNetworkError({ message: reason })) toast("Sin conexión · mostrando datos guardados");
+          else toast(`Error al actualizar: ${reason}`);
         } else {
-          toast("No pude cargar los datos");
+          toast(isNetworkError({ message: reason }) ? "Sin conexión y sin datos guardados" : `No pude cargar: ${reason || "error desconocido"}`);
         }
       } finally {
         setLoading(false);
@@ -273,6 +276,24 @@ export function DataProvider({
   useEffect(() => {
     load(month);
   }, [month, load]);
+
+  // Al volver a la app: refrescar datos (fijos que cayeron, otro dispositivo) y
+  // saltar al mes nuevo si la dejaste abierta durante un cambio de mes.
+  const monthRef = useRef(month);
+  monthRef.current = month;
+  const lastSeen = useRef({ at: Date.now(), ym: currentMonth() });
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      const nowYm = currentMonth();
+      const { at, ym } = lastSeen.current;
+      lastSeen.current = { at: Date.now(), ym: nowYm };
+      if (nowYm !== ym && monthRef.current === ym) setMonth(nowYm);
+      else if (Date.now() - at > 60_000) load(monthRef.current);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [load]);
 
   // --- movimientos --------------------------------------------------------
   const addTx = useCallback(
@@ -290,8 +311,12 @@ export function DataProvider({
       const insertOptimistic = (pending: boolean) =>
         setAllTxs((p) => [{ ...row, pending }, ...p].sort((a, b) => b.occurred_on.localeCompare(a.occurred_on)));
       insertOptimistic(false);
+      const where = row.occurred_on.startsWith(monthRef.current) ? "" : ` · ${monthLabel(row.occurred_on.slice(0, 7))}`;
       const { error } = await supabase().from("transactions").insert(row);
-      if (!error) return;
+      if (!error) {
+        toast(`${row.kind === "expense" ? "Gasto" : "Ingreso"} guardado ✓${where}`);
+        return;
+      }
       if (isNetworkError(error)) {
         setAllTxs((p) => p.map((x) => (x.id === row.id ? { ...x, pending: true } : x)));
         persistQueue([...readJSON<Transaction[]>(queueKey(userId), []), row]);
@@ -392,6 +417,13 @@ export function DataProvider({
   );
 
   const signOut = useCallback(async () => {
+    try {
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith("gastos.snap."))
+        .forEach((k) => localStorage.removeItem(k));
+    } catch {
+      /* ignorar */
+    }
     await supabase().auth.signOut();
   }, []);
 

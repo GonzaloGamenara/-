@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from "react";
 import { AuthGate } from "./AuthGate";
+import { LaunchGate } from "./LaunchGate";
 import { Shell } from "./Shell";
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -12,8 +13,10 @@ export function Providers({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthGate>
-      <Shell>{children}</Shell>
-    </AuthGate>
+    <LaunchGate>
+      <AuthGate>
+        <Shell>{children}</Shell>
+      </AuthGate>
+    </LaunchGate>
   );
 }

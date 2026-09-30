@@ -29,7 +29,7 @@ export function Shell({ children }: { children: ReactNode }) {
   }, [openSheet]);
 
   return (
-    <div className="mx-auto min-h-dvh w-full max-w-xl px-4 pb-36 pt-[max(1rem,env(safe-area-inset-top))]">
+    <div className="mx-auto min-h-dvh w-full max-w-2xl px-4 pb-36 pt-[max(1rem,env(safe-area-inset-top))]">
       {pendingCount > 0 && (
         <div className="fade-in mb-3 flex items-center gap-2 rounded-2xl border border-line bg-surface px-3 py-2 text-sm text-muted">
           <CloudOffIcon width={16} height={16} />
@@ -46,7 +46,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 <button
                   onClick={() => openSheet()}
                   aria-label="Anotar movimiento"
-                  className="press grid size-16 place-items-center rounded-full text-accent-ink shadow-[0_8px_30px_-4px_rgb(196_245_66/0.55)] ring-4 ring-bg"
+                  className="press grid size-16 place-items-center rounded-full text-accent-ink shadow-[0_10px_30px_-6px_rgb(94_234_212/0.6)] ring-[3px] ring-white/15"
                   style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}
                 >
                   <PlusIcon width={30} height={30} />
@@ -73,7 +73,7 @@ export function Shell({ children }: { children: ReactNode }) {
       {sheet.open && <QuickAdd />}
 
       {toastMsg && (
-        <div className="pop pointer-events-none fixed inset-x-0 bottom-28 z-[60] flex justify-center px-6">
+        <div role="status" aria-live="polite" className="pop pointer-events-none fixed inset-x-0 bottom-28 z-[60] flex justify-center px-6">
           <div className="glass rounded-full px-4 py-2.5 text-sm font-medium">{toastMsg}</div>
         </div>
       )}

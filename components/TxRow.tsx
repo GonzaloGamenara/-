@@ -1,10 +1,10 @@
 "use client";
 
 import { useStore } from "@/lib/store";
-import { money } from "@/lib/format";
+import { dayLabel, money } from "@/lib/format";
 import type { Transaction } from "@/lib/types";
 
-export function TxRow({ tx }: { tx: Transaction }) {
+export function TxRow({ tx, showDate = false }: { tx: Transaction; showDate?: boolean }) {
   const { categories, openSheet } = useStore();
   const cat = categories.find((c) => c.id === tx.category_id);
   const isExp = tx.kind === "expense";
@@ -22,7 +22,8 @@ export function TxRow({ tx }: { tx: Transaction }) {
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-medium">{tx.note || cat?.name || "Sin categoría"}</span>
         <span className="flex items-center gap-1.5 text-xs text-muted">
-          {cat?.name ?? "Sin categoría"}
+          {tx.note ? (cat?.name ?? "Sin categoría") : showDate ? dayLabel(tx.occurred_on) : "Sin nota"}
+          {tx.note && showDate && <span>· {dayLabel(tx.occurred_on)}</span>}
           {tx.recurring_id && <span className="rounded-full bg-surface px-1.5 py-px text-[10px]">fijo</span>}
           {tx.pending && <span className="rounded-full bg-surface px-1.5 py-px text-[10px]">sin subir</span>}
         </span>

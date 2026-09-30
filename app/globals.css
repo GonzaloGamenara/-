@@ -116,3 +116,10 @@ body::before {
 .press:active { transform: scale(.96); }
 
 input, select, textarea { font-size: 16px; } /* evita zoom en iOS */
+
+/* Accesibilidad: foco visible con teclado */
+:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; border-radius: 12px; }
+button, a { touch-action: manipulation; }
+button:disabled { cursor: not-allowed; }
+input[type="checkbox"] { accent-color: var(--accent-2); }
+::selection { background: color-mix(in srgb, var(--accent-2) 35%, transparent); }

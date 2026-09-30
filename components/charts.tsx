@@ -37,23 +37,30 @@ export function Donut({ slices, size = 168, center }: { slices: CatSlice[]; size
   );
 }
 
-/** Barras de gasto por día del mes; resalta el día de hoy. */
-export function DayBars({ values, today, height = 56 }: { values: number[]; today?: number; height?: number }) {
+/** Barras de gasto por día del mes; resalta hoy y atenúa los días que faltan. */
+export function DayBars({ values, today, height = 64 }: { values: number[]; today?: number; height?: number }) {
   const max = Math.max(...values, 1);
   return (
-    <div className="flex items-end gap-[3px]" style={{ height }} aria-hidden>
+    <div className="flex items-end gap-[2px]" style={{ height }} role="img" aria-label="Gasto por día del mes">
       {values.map((v, i) => {
         const isToday = today === i + 1;
         const future = today !== undefined && i + 1 > today;
+        if (v <= 0) {
+          return (
+            <div key={i} className="flex-1" title={`Día ${i + 1}: sin gastos`}>
+              <div className="mx-auto size-[3px] rounded-full bg-fg" style={{ opacity: future ? 0.12 : 0.3 }} />
+            </div>
+          );
+        }
         return (
           <div
             key={i}
-            className="flex-1 rounded-full"
+            className="flex-1 rounded-t-[4px] rounded-b-[2px]"
             title={`Día ${i + 1}: ${compact(v)}`}
             style={{
-              height: `${Math.max((v / max) * 100, v > 0 ? 8 : 4)}%`,
-              background: isToday ? "var(--accent)" : v > 0 ? "var(--fg)" : "var(--line)",
-              opacity: future ? 0.25 : v > 0 && !isToday ? 0.55 : 1,
+              height: `${Math.max((v / max) * 100, 10)}%`,
+              background: isToday ? "var(--accent)" : "var(--fg)",
+              opacity: isToday ? 1 : 0.6,
               transition: "height .5s ease",
             }}
           />

@@ -33,7 +33,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 function Logo({ size = 56 }: { size?: number }) {
   return (
     <div
-      className="grid place-items-center rounded-[28%] font-extrabold text-accent-ink pop"
+      className="grid place-items-center rounded-[28%] font-extrabold text-[#10130a] pop"
       style={{
         width: size,
         height: size,
@@ -51,6 +51,7 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showPw, setShowPw] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
@@ -69,7 +70,9 @@ function Login() {
           ? "Email o contraseña incorrectos."
           : /already registered/i.test(error.message)
             ? "Ese email ya tiene cuenta. Ingresá."
-            : error.message,
+            : /at least|weak/i.test(error.message)
+              ? "La contraseña tiene que tener al menos 6 caracteres."
+              : error.message,
       );
     } else if (mode === "up" && !data.session) {
       setMsg("Te mandamos un mail para confirmar la cuenta. Después ingresá acá.");
@@ -100,15 +103,25 @@ function Login() {
         </label>
         <label className="grid gap-1.5 text-sm text-muted">
           Contraseña
-          <input
-            type="password"
-            required
-            minLength={6}
-            autoComplete={mode === "in" ? "current-password" : "new-password"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="rounded-xl border border-line bg-surface px-4 py-3 text-fg outline-none focus:border-accent2"
-          />
+          <span className="relative block">
+            <input
+              type={showPw ? "text" : "password"}
+              required
+              minLength={6}
+              autoComplete={mode === "in" ? "current-password" : "new-password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-xl border border-line bg-surface py-3 pl-4 pr-16 text-fg outline-none focus:border-accent2"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPw((v) => !v)}
+              className="absolute inset-y-0 right-3 text-xs font-medium text-muted"
+              aria-label={showPw ? "Ocultar contraseña" : "Mostrar contraseña"}
+            >
+              {showPw ? "Ocultar" : "Ver"}
+            </button>
+          </span>
         </label>
         {msg && <p className="text-sm text-exp">{msg}</p>}
         <button

@@ -2,13 +2,16 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
-import { money } from "@/lib/format";
+import { currentMonth, dueDate, money, parseAmount, todayISO } from "@/lib/format";
 import type { Kind, Recurring } from "@/lib/types";
 import { Sheet } from "@/components/Sheet";
+import { PageHeader } from "@/components/PageHeader";
 import { PlusIcon, TrashIcon } from "@/components/Icons";
 
 export default function Fijos() {
-  const { recurring, categories, saveRecurring } = useStore();
+  const { recurring, categories, saveRecurring, txs, month } = useStore();
+  const isCurrent = month === currentMonth();
+  const applied = new Set(txs.filter((t) => t.period === month).map((t) => t.recurring_id));
   const [editing, setEditing] = useState<Partial<Recurring> | null>(null);
 
   const totals = (kind: Kind) =>
@@ -16,12 +19,10 @@ export default function Fijos() {
 
   return (
     <div className="grid gap-5">
-      <header className="rise pt-1">
-        <h1 className="text-xl font-semibold tracking-tight">Fijos mensuales</h1>
-        <p className="mt-1 text-sm text-muted">
-          Se cargan solos cada mes, el día que elijas. Sueldo, beca, alquiler, suscripciones…
-        </p>
-      </header>
+      <PageHeader
+        title="Fijos"
+        subtitle="Se cargan solos cada mes, el día que elijas: sueldo, beca, alquiler, suscripciones…"
+      />
 
       {(["income", "expense"] as const).map((kind) => {
         const items = recurring.filter((r) => r.kind === kind);
@@ -51,9 +52,18 @@ export default function Fijos() {
                         <span className="text-2xl">{cat?.emoji ?? "🔁"}</span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-medium">{r.name}</span>
-                          <span className="text-xs text-muted">Día {r.day}{r.active ? "" : " · pausado"}</span>
+                          <span className="text-xs text-muted">
+                            Todos los {r.day}
+                            {!r.active
+                              ? " · pausado"
+                              : isCurrent && applied.has(r.id)
+                                ? " · ✓ cargado este mes"
+                                : isCurrent && dueDate(month, r.day) > todayISO()
+                                  ? " · pendiente"
+                                  : ""}
+                          </span>
                         </span>
-                        <span className="num font-semibold">{money(r.amount)}</span>
+                        <span className={`num font-semibold ${r.kind === "income" ? "text-inc" : ""}`}>{money(r.amount)}</span>
                       </button>
                     </li>
                   );
@@ -90,13 +100,13 @@ function RecurringForm({
   const { categories, deleteRecurring } = useStore();
   const kind = (initial.kind ?? "expense") as Kind;
   const [name, setName] = useState(initial.name ?? "");
-  const [amount, setAmount] = useState(initial.amount ? String(initial.amount) : "");
+  const [amount, setAmount] = useState(initial.amount ? String(initial.amount).replace(".", ",") : "");
   const [day, setDay] = useState(String(initial.day ?? 1));
   const [catId, setCatId] = useState(initial.category_id ?? "");
   const [active, setActive] = useState(initial.active ?? true);
   const [busy, setBusy] = useState(false);
 
-  const amountNum = Number(amount.replace(",", "."));
+  const amountNum = parseAmount(amount);
   const valid = name.trim() && amountNum > 0 && Number(day) >= 1 && Number(day) <= 31;
   const field = "rounded-xl border border-line bg-surface px-4 py-3 outline-none focus:border-accent2";
 
@@ -113,16 +123,16 @@ function RecurringForm({
       >
         <label className="grid gap-1 text-sm text-muted">
           Nombre
-          <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder={kind === "income" ? "Sueldo, Beca…" : "Alquiler, Spotify…"} autoFocus />
+          <input className={field} value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder={kind === "income" ? "Sueldo, Beca…" : "Alquiler, Spotify…"} autoFocus={!initial.id} />
         </label>
         <div className="grid grid-cols-2 gap-3">
           <label className="grid gap-1 text-sm text-muted">
             Monto
-            <input className={field} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" />
+            <input className={field} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Ej: 85.000" />
           </label>
           <label className="grid gap-1 text-sm text-muted">
             Día del mes
-            <input className={field} type="number" min={1} max={31} value={day} onChange={(e) => setDay(e.target.value)} />
+            <input className={field} type="number" inputMode="numeric" min={1} max={31} value={day} onChange={(e) => setDay(e.target.value)} />
           </label>
         </div>
         <label className="grid gap-1 text-sm text-muted">

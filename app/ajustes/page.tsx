@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
 import type { Category, Kind } from "@/lib/types";
 import { Sheet } from "@/components/Sheet";
+import { PageHeader } from "@/components/PageHeader";
 import { PlusIcon, TrashIcon } from "@/components/Icons";
+
+const EMOJIS = ["🛒", "🍔", "☕", "🍕", "🚌", "🚗", "⛽", "🏠", "💡", "📱", "📺", "🎮", "💊", "🏥", "📚", "🎓", "👕", "👟", "🎉", "🍻", "🎁", "✈️", "🐶", "💇", "🏋️", "💼", "💰", "🏷️", "🧩", "✨"];
 
 const PALETTE = ["#34d399", "#4ade80", "#a3e635", "#facc15", "#fb923c", "#f87171", "#fb7185", "#f472b6", "#c084fc", "#a78bfa", "#60a5fa", "#22d3ee", "#2dd4bf", "#94a3b8"];
 
@@ -24,22 +27,36 @@ export default function Ajustes() {
     if (error || !data) return toast("No se pudo exportar");
     const name = (id: string | null) => categories.find((c) => c.id === id)?.name ?? "";
     const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    // Excel en español espera ";" como separador y "," como decimal
     const rows = [
-      "fecha,tipo,monto,categoria,nota",
-      ...data.map((t) => [t.occurred_on, t.kind === "expense" ? "gasto" : "ingreso", t.amount, esc(name(t.category_id)), esc(t.note ?? "")].join(",")),
+      "fecha;tipo;monto;categoria;nota",
+      ...data.map((t) =>
+        [t.occurred_on, t.kind === "expense" ? "gasto" : "ingreso", String(t.amount).replace(".", ","), esc(name(t.category_id)), esc(t.note ?? "")].join(";"),
+      ),
     ];
     const url = URL.createObjectURL(new Blob(["﻿" + rows.join("\n")], { type: "text/csv;charset=utf-8" }));
     const a = Object.assign(document.createElement("a"), { href: url, download: "gastos.csv" });
     a.click();
     URL.revokeObjectURL(url);
+    toast(`Exportados ${data.length} movimientos`);
   }
+
+  // Instalación como app (Android/Chrome); en iPhone hay que hacerlo desde Compartir
+  const [installEvt, setInstallEvt] = useState<(Event & { prompt: () => Promise<void> }) | null>(null);
+  const [standalone, setStandalone] = useState(true);
+  useEffect(() => {
+    setStandalone(window.matchMedia("(display-mode: standalone)").matches || (navigator as { standalone?: boolean }).standalone === true);
+    const onPrompt = (e: Event) => {
+      e.preventDefault();
+      setInstallEvt(e as Event & { prompt: () => Promise<void> });
+    };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
+  }, []);
 
   return (
     <div className="grid gap-5">
-      <header className="rise pt-1">
-        <h1 className="text-xl font-semibold tracking-tight">Perfil</h1>
-        <p className="mt-1 text-sm text-muted">{email}</p>
-      </header>
+      <PageHeader title="Perfil" subtitle={email} />
 
       {(["expense", "income"] as const).map((kind) => (
         <section key={kind} className="rise">
@@ -77,9 +94,23 @@ export default function Ajustes() {
         </button>
       </section>
 
-      <p className="px-2 text-center text-xs text-muted">
-        Tip: en el celular, “Agregar a pantalla de inicio” para usarla como app.
-      </p>
+      {!standalone && (
+        <section className="glass rise rounded-3xl p-5">
+          <h2 className="font-medium">Instalala como app</h2>
+          {installEvt ? (
+            <button
+              onClick={() => installEvt.prompt()}
+              className="press mt-3 w-full rounded-2xl bg-accent py-3 font-semibold text-accent-ink"
+            >
+              Instalar
+            </button>
+          ) : (
+            <p className="mt-1 text-sm text-muted">
+              iPhone: Compartir → “Agregar a inicio”. Android: menú ⋮ → “Instalar app”.
+            </p>
+          )}
+        </section>
+      )}
 
       {editing && (
         <CategoryForm
@@ -121,8 +152,23 @@ function CategoryForm({
         }}
       >
         <div className="grid grid-cols-[72px_1fr] gap-3">
-          <input className={`${field} text-center text-2xl`} value={emoji} onChange={(e) => setEmoji([...e.target.value].slice(-2).join(""))} aria-label="Emoji" />
-          <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre" autoFocus maxLength={24} />
+          <div className="grid place-items-center rounded-xl border border-line text-3xl" style={{ background: `color-mix(in srgb, ${color} 25%, transparent)` }} aria-hidden>
+            {emoji}
+          </div>
+          <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre" autoFocus={!initial.id} maxLength={24} />
+        </div>
+        <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-10">
+          {EMOJIS.map((e) => (
+            <button
+              type="button"
+              key={e}
+              onClick={() => setEmoji(e)}
+              aria-label={e}
+              className={`press grid aspect-square place-items-center rounded-xl text-xl ${emoji === e ? "bg-fg/15 ring-2 ring-accent2" : "bg-surface"}`}
+            >
+              {e}
+            </button>
+          ))}
         </div>
         <div className="flex flex-wrap gap-2.5">
           {PALETTE.map((c) => (

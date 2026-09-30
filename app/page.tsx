@@ -4,41 +4,50 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useStore } from "@/lib/store";
 import { monthStats } from "@/lib/stats";
-import { compact, money, monthLabel } from "@/lib/format";
+import { compact, money, moneyRound, monthLabel } from "@/lib/format";
 import { MonthSwitcher } from "@/components/MonthSwitcher";
+import { PageHeader } from "@/components/PageHeader";
 import { DayBars, Donut } from "@/components/charts";
 import { TxRow } from "@/components/TxRow";
 import { ArrowUpRight } from "@/components/Icons";
 
 export default function Home() {
   const { month, txs, prevTxs, categories, recurring, loading, openSheet } = useStore();
-  const s = useMemo(() => monthStats(month, txs, prevTxs, categories, recurring), [month, txs, prevTxs, categories, recurring]);
-  const today = s.isCurrent ? s.elapsed : undefined;
+  const s = useMemo(
+    () => monthStats(month, txs, prevTxs, categories, recurring),
+    [month, txs, prevTxs, categories, recurring],
+  );
+  const monthName = monthLabel(month).split(" ")[0].toLowerCase();
 
   return (
     <div className="grid gap-4">
-      <header className="rise flex items-center justify-between pt-1">
-        <h1 className="text-xl font-semibold tracking-tight">Resumen</h1>
-        <MonthSwitcher />
-      </header>
+      <PageHeader title="Resumen" right={<MonthSwitcher />} />
 
       {loading && txs.length === 0 ? (
         <div className="grid gap-4">
-          <div className="skeleton h-56" />
-          <div className="grid grid-cols-2 gap-3"><div className="skeleton h-24" /><div className="skeleton h-24" /></div>
+          <div className="skeleton h-60" />
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => <div key={i} className="skeleton h-24" />)}
+          </div>
+          <div className="skeleton h-72" />
         </div>
       ) : txs.length === 0 ? (
         <Empty onAdd={() => openSheet()} month={month} />
       ) : (
         <>
           {/* Hero */}
-          <section className="glass rise rounded-[28px] p-5" style={{ animationDelay: "40ms" }}>
-            <p className="text-sm text-muted">Gastaste en {monthLabel(month, "long").split(" ")[0].toLowerCase()}</p>
-            <div className="mt-1 flex flex-wrap items-end gap-x-3 gap-y-1">
-              <span className="num text-[44px] font-semibold leading-none">{money(s.spent)}</span>
+          <section className="glass rise relative overflow-hidden rounded-[28px] p-5" style={{ animationDelay: "40ms" }}>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full opacity-40 blur-3xl"
+              style={{ background: "radial-gradient(closest-side, var(--exp), transparent)" }}
+            />
+            <p className="relative text-sm text-muted">Gastaste en {monthName}</p>
+            <div className="relative mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <span className="num text-[clamp(2.25rem,11vw,3.25rem)] font-semibold leading-none">{money(s.spent)}</span>
               {s.deltaVsPrev !== null && (
                 <span
-                  className={`mb-1 inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                  className={`inline-flex items-center gap-0.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
                     s.deltaVsPrev > 0 ? "bg-exp/15 text-exp" : "bg-inc/15 text-inc"
                   }`}
                 >
@@ -47,37 +56,38 @@ export default function Home() {
                 </span>
               )}
             </div>
-            <div className="mt-5">
-              <DayBars values={s.perDay} today={today} />
-              <div className="mt-1.5 flex justify-between text-[10px] text-muted">
+            <div className="relative mt-6">
+              <DayBars values={s.perDay} today={s.isCurrent ? s.elapsed : undefined} />
+              <div className="mt-2 flex justify-between text-[10px] text-muted">
                 <span>1</span>
+                {s.isCurrent && <span className="font-semibold text-fg">hoy {s.elapsed}</span>}
                 <span>{s.dim}</span>
               </div>
             </div>
-            {s.isCurrent && s.projected > s.spent && (
-              <p className="mt-3 rounded-2xl bg-surface px-3.5 py-2.5 text-sm text-muted">
-                A este ritmo cerrás el mes en <b className="num text-fg">{money(s.projected)}</b>
-                {s.upcomingExpense > 0 && <> (incluye {compact(s.upcomingExpense)} de fijos por venir)</>}.
+            {s.isCurrent && s.projected > s.spent + 1 && (
+              <p className="relative mt-4 rounded-2xl bg-surface px-3.5 py-2.5 text-sm text-muted">
+                A este ritmo cerrás el mes en <b className="num text-fg">{moneyRound(s.projected)}</b>
+                {s.upcomingExpense > 0 && <> · incluye {compact(s.upcomingExpense)} de fijos por venir</>}.
               </p>
             )}
           </section>
 
-          {/* Bento */}
-          <section className="grid grid-cols-2 gap-3">
-            <Stat label="Ingresos" value={money(s.earned)} tone="text-inc" delay={80} hint={s.upcomingIncome > 0 ? `+${compact(s.upcomingIncome)} por cobrar` : undefined} />
+          {/* Métricas */}
+          <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Stat label="Ingresos" value={moneyRound(s.earned)} tone="text-inc" delay={80} hint={s.upcomingIncome > 0 ? `+${compact(s.upcomingIncome)} por cobrar` : undefined} />
             <Stat
-              label="Balance"
-              value={money(s.balance)}
+              label="Te queda"
+              value={moneyRound(s.balance)}
               tone={s.balance < 0 ? "text-exp" : ""}
               delay={120}
-              hint={s.savingsRate !== null ? `${Math.round(s.savingsRate * 100)}% ahorrado` : undefined}
+              hint={s.savingsRate !== null ? `${Math.round(s.savingsRate * 100)}% de tus ingresos` : "sin ingresos cargados"}
             />
-            <Stat label="Promedio diario" value={money(s.dailyAvg)} delay={160} hint="solo gastos variables" />
+            <Stat label="Por día" value={moneyRound(s.dailyAvg)} delay={160} hint="gastos variables, sin fijos" />
             <Stat
-              label="Fijos vs variables"
-              value={`${s.spent > 0 ? Math.round((s.fixedSpent / s.spent) * 100) : 0}% fijos`}
+              label="Fijos"
+              value={`${s.spent > 0 ? Math.round((s.fixedSpent / s.spent) * 100) : 0}%`}
               delay={200}
-              hint={`${compact(s.fixedSpent)} · ${compact(s.variableSpent)}`}
+              hint={`${compact(s.fixedSpent)} fijos · ${compact(s.variableSpent)} variables`}
             />
           </section>
 
@@ -88,13 +98,14 @@ export default function Home() {
                 <h2 className="text-sm font-semibold">Todavía por venir</h2>
                 <Link href="/fijos" className="text-xs text-muted">Ver fijos</Link>
               </div>
-              <ul className="grid gap-1.5">
+              <ul className="grid gap-2">
                 {s.upcoming.map((r) => (
-                  <li key={r.id} className="flex items-center justify-between text-sm">
-                    <span className="text-muted">
-                      Día {r.day} · <span className="text-fg">{r.name}</span>
+                  <li key={r.id} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="min-w-0 truncate">
+                      <span className="mr-2 text-muted">día {r.day}</span>
+                      {r.name}
                     </span>
-                    <span className={`num font-medium ${r.kind === "income" ? "text-inc" : ""}`}>
+                    <span className={`num shrink-0 font-medium ${r.kind === "income" ? "text-inc" : ""}`}>
                       {r.kind === "income" ? "+" : "−"}{money(r.amount)}
                     </span>
                   </li>
@@ -107,14 +118,14 @@ export default function Home() {
           {s.expenseCats.length > 0 && (
             <section className="glass rise rounded-[28px] p-5" style={{ animationDelay: "260ms" }}>
               <h2 className="mb-4 text-sm font-semibold">En qué gastás</h2>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-5">
                 <Donut
                   slices={s.expenseCats}
-                  size={148}
+                  size={140}
                   center={
                     <div>
-                      <div className="text-[11px] text-muted">{s.expenseCats.length} categorías</div>
                       <div className="num text-lg font-semibold">{compact(s.spent)}</div>
+                      <div className="text-[11px] text-muted">{s.expenseCats.length} categ.</div>
                     </div>
                   }
                 />
@@ -123,12 +134,13 @@ export default function Home() {
                     <li key={c.id ?? "none"} className="flex items-center gap-2 text-sm">
                       <span className="size-2.5 shrink-0 rounded-full" style={{ background: c.color }} />
                       <span className="truncate">{c.name}</span>
-                      <span className="num ml-auto text-muted">{Math.round(c.share * 100)}%</span>
+                      <span className="num ml-auto shrink-0 text-muted">{Math.round(c.share * 100)}%</span>
                     </li>
                   ))}
+                  {s.expenseCats.length > 4 && <li className="text-xs text-muted">+{s.expenseCats.length - 4} más</li>}
                 </ul>
               </div>
-              <ul className="mt-5 grid gap-1">
+              <ul className="mt-5 grid gap-0.5">
                 {s.expenseCats.map((c) => (
                   <li key={c.id ?? "none"}>
                     <Link
@@ -136,20 +148,38 @@ export default function Home() {
                       className="press block rounded-2xl px-2 py-2.5 hover:bg-surface"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-xl">{c.emoji}</span>
-                        <span className="flex-1 text-[15px] font-medium">
-                          {c.name}
-                          <span className="ml-2 text-xs font-normal text-muted">{c.count} mov.</span>
+                        <span className="grid size-9 shrink-0 place-items-center rounded-xl text-lg" style={{ background: `color-mix(in srgb, ${c.color} 22%, transparent)` }}>
+                          {c.emoji}
                         </span>
-                        <span className="num font-semibold">{money(c.total)}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[15px] font-medium">{c.name}</span>
+                          <span className="text-xs text-muted">{c.count} {c.count === 1 ? "movimiento" : "movimientos"}</span>
+                        </span>
+                        <span className="text-right">
+                          <span className="num block font-semibold">{money(c.total)}</span>
+                          <span className="num text-xs text-muted">{Math.round(c.share * 100)}%</span>
+                        </span>
                       </div>
                       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line">
-                        <div
-                          className="h-full rounded-full"
-                          style={{ width: `${Math.max(c.share * 100, 2)}%`, background: c.color, transition: "width .6s ease" }}
-                        />
+                        <div className="h-full rounded-full" style={{ width: `${Math.max(c.share * 100, 2)}%`, background: c.color, transition: "width .6s ease" }} />
                       </div>
                     </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* De dónde viene */}
+          {s.incomeCats.length > 0 && (
+            <section className="glass rise rounded-[28px] p-5" style={{ animationDelay: "280ms" }}>
+              <h2 className="mb-3 text-sm font-semibold">De dónde viene</h2>
+              <ul className="grid gap-2.5">
+                {s.incomeCats.map((c) => (
+                  <li key={c.id ?? "none"} className="flex items-center gap-3 text-sm">
+                    <span className="text-lg">{c.emoji}</span>
+                    <span className="flex-1 truncate">{c.name}</span>
+                    <span className="num font-semibold text-inc">+{money(c.total)}</span>
                   </li>
                 ))}
               </ul>
@@ -163,7 +193,7 @@ export default function Home() {
               <Link href="/movimientos" className="text-xs text-muted">Ver todos</Link>
             </div>
             <div className="grid">
-              {txs.slice(0, 5).map((t) => <TxRow key={t.id} tx={t} />)}
+              {txs.slice(0, 5).map((t) => <TxRow key={t.id} tx={t} showDate />)}
             </div>
           </section>
         </>
@@ -174,10 +204,10 @@ export default function Home() {
 
 function Stat({ label, value, hint, tone = "", delay = 0 }: { label: string; value: string; hint?: string; tone?: string; delay?: number }) {
   return (
-    <div className="glass rise rounded-3xl p-4" style={{ animationDelay: `${delay}ms` }}>
+    <div className="glass rise min-w-0 rounded-3xl p-4" style={{ animationDelay: `${delay}ms` }}>
       <p className="text-xs text-muted">{label}</p>
-      <p className={`num mt-1 truncate text-xl font-semibold ${tone}`}>{value}</p>
-      {hint && <p className="mt-0.5 truncate text-[11px] text-muted">{hint}</p>}
+      <p className={`num mt-1 truncate text-[clamp(1.05rem,5vw,1.3rem)] font-semibold ${tone}`}>{value}</p>
+      {hint && <p className="mt-1 text-[11px] leading-snug text-muted">{hint}</p>}
     </div>
   );
 }

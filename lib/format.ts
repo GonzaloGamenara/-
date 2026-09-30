@@ -9,16 +9,39 @@ const moneyFmtDec = new Intl.NumberFormat("es-AR", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
-const compactFmt = new Intl.NumberFormat("es-AR", {
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
+const oneDec = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 });
 
 export function money(n: number, opts: { decimals?: boolean } = {}) {
   const hasCents = Math.round(n * 100) % 100 !== 0;
   return (opts.decimals || hasCents ? moneyFmtDec : moneyFmt).format(n).replace(/ /g, " ");
 }
-export const compact = (n: number) => `$${compactFmt.format(n)}`;
+/** $124k · $1,2M — para espacios chicos */
+export function compact(n: number) {
+  const a = Math.abs(n);
+  const sign = n < 0 ? "−" : "";
+  if (a >= 1e6) return `${sign}$${oneDec.format(a / 1e6)}M`;
+  if (a >= 1e4) return `${sign}$${Math.round(a / 1e3)}k`;
+  if (a >= 1e3) return `${sign}$${oneDec.format(a / 1e3)}k`;
+  return `${sign}$${Math.round(a)}`;
+}
+
+/** Monto para métricas calculadas: sin centavos */
+export const moneyRound = (n: number) => money(Math.round(n));
+
+/**
+ * Interpreta lo que escribe una persona en Argentina:
+ * "85.000" → 85000 · "1.500,50" → 1500.5 · "12,5" → 12.5 · "12.5" → 12.5
+ */
+export function parseAmount(input: string): number {
+  const t = input.trim().replace(/[^\d.,]/g, "");
+  if (!t) return 0;
+  let normalized: string;
+  if (t.includes(",")) normalized = t.replace(/\./g, "").replace(",", ".");
+  else if (/^\d{1,3}(\.\d{3})+$/.test(t)) normalized = t.replace(/\./g, "");
+  else normalized = t;
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : 0;
+}
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -52,7 +75,15 @@ export function monthLabel(ym: string, style: "long" | "short" = "long") {
     month: style,
     year: style === "long" ? "numeric" : undefined,
   }).format(new Date(y, m - 1, 1));
-  return out.charAt(0).toUpperCase() + out.slice(1);
+  const clean = out.replace(" de ", " ");
+  return clean.charAt(0).toUpperCase() + clean.slice(1);
+}
+
+/** "Sep 2026" */
+export function monthLabelCompact(ym: string) {
+  const [y, m] = ym.split("-").map(Number);
+  const mon = new Intl.DateTimeFormat("es-AR", { month: "short" }).format(new Date(y, m - 1, 1)).replace(".", "");
+  return `${mon.charAt(0).toUpperCase()}${mon.slice(1)} ${y}`;
 }
 
 export function dayLabel(iso: string) {

@@ -54,11 +54,17 @@ export function QuickAdd() {
     if (catId && !categories.find((c) => c.id === catId && c.kind === kind)) setCatId(null);
   }, [kind, catId, categories]);
 
-  // Teclado físico (escritorio)
+  // Teclado físico (escritorio): dígitos, coma, borrar y Enter para guardar
+  const saveRef = useRef<() => void>(() => {});
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (document.activeElement instanceof HTMLInputElement) return;
-      if (/^[0-9]$/.test(e.key) || e.key === "," || e.key === ".") setRaw((r) => press(r, e.key === "." ? "," : e.key));
+      if (e.key === "Enter") {
+        e.preventDefault();
+        saveRef.current();
+      }
+      else if (/^[0-9]$/.test(e.key) || e.key === "," || e.key === ".") setRaw((r) => press(r, e.key === "." ? "," : e.key));
       else if (e.key === "Backspace") setRaw((r) => press(r, "⌫"));
     };
     document.addEventListener("keydown", onKey);
@@ -83,13 +89,14 @@ export function QuickAdd() {
       setNote("");
       setFlash(true);
       setTimeout(() => setFlash(false), 900);
-      if (navigator.vibrate) navigator.vibrate(12);
+      navigator.vibrate?.(12);
     } else {
       addTx(payload);
       closeSheet();
     }
   }
 
+  saveRef.current = save;
   const isExp = kind === "expense";
   const tone = isExp ? "text-exp" : "text-inc";
 
@@ -145,6 +152,7 @@ export function QuickAdd() {
           placeholder={isExp ? "¿En qué? (opcional)" : "¿De qué? (opcional)"}
           maxLength={80}
           enterKeyHint="done"
+          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), noteRef.current?.blur())}
           className="mx-auto mt-1 w-full max-w-xs bg-transparent text-center text-[15px] outline-none placeholder:text-muted/70"
         />
       </div>
