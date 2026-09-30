@@ -94,7 +94,7 @@ export default function GroupPage() {
 
       {/* Personas */}
       <section className="rise">
-        <div className="hide-scroll -mx-4 flex items-center gap-1.5 overflow-x-auto px-4">
+        <div className="flex flex-wrap items-center gap-1.5">
           {ms.map((m) => (
             <span key={m.id} className="flex shrink-0 items-center gap-1.5 rounded-full bg-surface py-1.5 pl-1.5 pr-3 text-sm">
               <span className={`grid size-6 place-items-center rounded-full text-[11px] font-bold ${m.is_me ? "bg-accent2/30" : "bg-inset"}`}>

@@ -134,3 +134,8 @@ button, a { touch-action: manipulation; }
 button:disabled { cursor: not-allowed; }
 input[type="checkbox"] { accent-color: var(--accent-2); }
 ::selection { background: color-mix(in srgb, var(--accent-2) 35%, transparent); }
+
+/* Los hijos de una grilla nunca la ensanchan más que la pantalla (las filas con scroll
+   horizontal, como chips de personas o categorías, se desplazan dentro de su lugar). */
+.grid > * { min-width: 0; }
+html, body { max-width: 100%; }
