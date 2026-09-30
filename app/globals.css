@@ -14,6 +14,8 @@
   --accent-2: #5eead4;
   --exp: #ff6b81;
   --inc: #4ade80;
+  --on-exp: #ffffff;
+  --on-inc: #052e12;
   --glow-a: rgb(124 92 255 / 0.28);
   --glow-b: rgb(45 212 191 / 0.18);
   --glow-c: rgb(196 245 66 / 0.10);
@@ -34,6 +36,8 @@
     --accent-2: #0d9488;
     --exp: #e11d48;
     --inc: #16a34a;
+    --on-exp: #ffffff;
+    --on-inc: #ffffff;
     --glow-a: rgb(124 92 255 / 0.20);
     --glow-b: rgb(45 212 191 / 0.20);
     --glow-c: rgb(250 204 21 / 0.16);
@@ -55,6 +59,8 @@
   --color-accent2: var(--accent-2);
   --color-exp: var(--exp);
   --color-inc: var(--inc);
+  --color-on-exp: var(--on-exp);
+  --color-on-inc: var(--on-inc);
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
@@ -121,7 +127,8 @@ body::before {
 input, select, textarea { font-size: 16px; } /* evita zoom en iOS */
 
 /* Accesibilidad: foco visible con teclado */
-:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; border-radius: 12px; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+input:focus, select:focus, textarea:focus { outline: none; }
 button, a { touch-action: manipulation; }
 button:disabled { cursor: not-allowed; }
 input[type="checkbox"] { accent-color: var(--accent-2); }

@@ -41,7 +41,7 @@ export function Sheet({
         {title && (
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold">{title}</h2>
-            <button onClick={onClose} aria-label="Cerrar" className="press grid size-9 place-items-center rounded-full bg-surface">
+            <button onClick={onClose} aria-label="Cerrar" className="press grid size-9 place-items-center rounded-full bg-inset">
               <XIcon width={18} height={18} />
             </button>
           </div>

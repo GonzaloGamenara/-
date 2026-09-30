@@ -51,20 +51,29 @@ export default function Fijos() {
                   return (
                     <li key={r.id} className={r.active ? "" : "opacity-45"}>
                       <button onClick={() => setEditing(r)} className="press flex w-full items-center gap-3 px-4 py-3 text-left">
-                        <span className="text-2xl">{cat?.emoji ?? "🔁"}</span>
+                        <span
+                          className="grid size-11 shrink-0 place-items-center rounded-2xl text-xl"
+                          style={{ background: `color-mix(in srgb, ${cat?.color ?? "#64748b"} 22%, transparent)` }}
+                        >
+                          {cat?.emoji ?? "🔁"}
+                        </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-medium">{r.name}</span>
-                          <span className="text-xs text-muted">
-                            Día {r.day} de cada mes
-                            {prelaunch && r.active
-                              ? " · arranca en octubre"
-                              : !r.active
-                              ? " · pausado"
-                              : isCurrent && applied.has(r.id)
-                                ? " · ✓ cargado este mes"
-                                : isCurrent && dueDate(month, r.day) > todayISO()
-                                  ? " · pendiente"
-                                  : ""}
+                          <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+                            Día {r.day}
+                            <Status
+                              label={
+                                !r.active
+                                  ? "Pausado"
+                                  : prelaunch
+                                    ? "Desde octubre"
+                                    : isCurrent && applied.has(r.id)
+                                      ? "✓ Este mes"
+                                      : isCurrent && dueDate(month, r.day) > todayISO()
+                                        ? "Pendiente"
+                                        : null
+                              }
+                            />
                           </span>
                         </span>
                         <span className={`num font-semibold ${r.kind === "income" ? "text-inc" : ""}`}>{money(r.amount)}</span>
@@ -92,6 +101,11 @@ export default function Fijos() {
   );
 }
 
+function Status({ label }: { label: string | null }) {
+  if (!label) return null;
+  return <span className="rounded-full bg-inset px-2 py-0.5 text-[11px] font-medium leading-none text-fg/80">{label}</span>;
+}
+
 function RecurringForm({
   initial,
   onClose,
@@ -104,7 +118,7 @@ function RecurringForm({
   const { categories, deleteRecurring } = useStore();
   const kind = (initial.kind ?? "expense") as Kind;
   const [name, setName] = useState(initial.name ?? "");
-  const [amount, setAmount] = useState(initial.amount ? String(initial.amount).replace(".", ",") : "");
+  const [amount, setAmount] = useState(initial.amount ? new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 }).format(initial.amount) : "");
   const [day, setDay] = useState(String(initial.day ?? 1));
   const [catId, setCatId] = useState(initial.category_id ?? "");
   const [active, setActive] = useState(initial.active ?? true);
@@ -112,7 +126,7 @@ function RecurringForm({
 
   const amountNum = parseAmount(amount);
   const valid = name.trim() && amountNum > 0 && Number(day) >= 1 && Number(day) <= 31;
-  const field = "rounded-xl border border-line bg-inset px-4 py-3 outline-none focus:border-accent2";
+  const field = "w-full rounded-xl border border-line bg-inset px-4 py-3 text-fg outline-none placeholder:text-muted/70 focus:border-accent2";
 
   return (
     <Sheet open onClose={onClose} title={`${initial.id ? "Editar" : "Nuevo"} ${kind === "income" ? "ingreso" : "gasto"} fijo`}>
@@ -136,7 +150,7 @@ function RecurringForm({
           </label>
           <label className="grid gap-1 text-sm text-muted">
             Día del mes
-            <input className={field} type="number" inputMode="numeric" min={1} max={31} value={day} onChange={(e) => setDay(e.target.value)} />
+            <input className={field} type="text" inputMode="numeric" maxLength={2} value={day} onChange={(e) => setDay(e.target.value.replace(/\D/g, ""))} />
           </label>
         </div>
         <label className="grid gap-1 text-sm text-muted">
@@ -163,7 +177,7 @@ function RecurringForm({
                 }
               }}
               aria-label="Borrar"
-              className="press grid size-13 place-items-center rounded-2xl bg-surface text-exp"
+              className="press grid size-[3.25rem] shrink-0 place-items-center rounded-2xl bg-inset text-exp"
             >
               <TrashIcon width={20} height={20} />
             </button>

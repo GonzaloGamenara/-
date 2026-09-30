@@ -140,7 +140,7 @@ function CategoryForm({
   const [name, setName] = useState(initial.name ?? "");
   const [emoji, setEmoji] = useState(initial.emoji ?? "🏷️");
   const [color, setColor] = useState(initial.color ?? PALETTE[0]);
-  const field = "rounded-xl border border-line bg-inset px-4 py-3 outline-none focus:border-accent2";
+  const field = "w-full rounded-xl border border-line bg-inset px-4 py-3 text-fg outline-none placeholder:text-muted/70 focus:border-accent2";
 
   return (
     <Sheet open onClose={onClose} title={initial.id ? "Editar categoría" : "Nueva categoría"}>
@@ -193,7 +193,7 @@ function CategoryForm({
                 }
               }}
               aria-label="Borrar"
-              className="press grid size-13 place-items-center rounded-2xl bg-surface text-exp"
+              className="press grid size-[3.25rem] shrink-0 place-items-center rounded-2xl bg-inset text-exp"
             >
               <TrashIcon width={20} height={20} />
             </button>

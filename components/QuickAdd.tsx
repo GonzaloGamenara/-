@@ -104,13 +104,13 @@ export function QuickAdd() {
     <Sheet open onClose={closeSheet} tall>
       {/* Tipo */}
       <div className="mb-4 flex items-center gap-2">
-        <div className="grid flex-1 grid-cols-2 rounded-full bg-surface p-1 text-sm font-semibold">
+        <div className="grid flex-1 grid-cols-2 rounded-full bg-inset p-1 text-sm font-semibold">
           {(["expense", "income"] as const).map((k) => (
             <button
               key={k}
               onClick={() => setKind(k)}
               className={`rounded-full py-2 transition-colors ${
-                kind === k ? (k === "expense" ? "bg-exp text-white" : "bg-inc text-black") : "text-muted"
+                kind === k ? (k === "expense" ? "bg-exp text-on-exp shadow-sm" : "bg-inc text-on-inc shadow-sm") : "text-muted"
               }`}
             >
               {k === "expense" ? "Gasto" : "Ingreso"}
@@ -127,7 +127,7 @@ export function QuickAdd() {
               }
             }}
             aria-label="Borrar"
-            className="press grid size-10 place-items-center rounded-full bg-surface text-exp"
+            className="press grid size-10 place-items-center rounded-full bg-inset text-exp"
           >
             <TrashIcon width={18} height={18} />
           </button>
@@ -153,13 +153,13 @@ export function QuickAdd() {
           maxLength={80}
           enterKeyHint="done"
           onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), noteRef.current?.blur())}
-          className="mx-auto mt-1 w-full max-w-xs bg-transparent text-center text-[15px] outline-none placeholder:text-muted/70"
+          className="mx-auto mt-2 w-full max-w-xs rounded-full bg-transparent px-4 py-2 text-center text-[15px] transition-colors placeholder:text-muted/80 focus:bg-inset"
         />
       </div>
 
       {/* Categorías */}
       <div className="hide-scroll -mx-5 mb-3 overflow-x-auto px-5">
-        <div className="grid auto-cols-[84px] grid-flow-col grid-rows-2 gap-2">
+        <div className="grid auto-cols-[92px] grid-flow-col grid-rows-2 gap-2">
           {ordered.map((c) => {
             const on = c.id === catId;
             return (
@@ -172,7 +172,7 @@ export function QuickAdd() {
                 style={on ? { background: c.color } : undefined}
               >
                 <span className="text-xl">{c.emoji}</span>
-                <span className="line-clamp-2 min-h-[2.4em] w-full break-words text-center">{c.name}</span>
+                <span className="line-clamp-2 min-h-[2.5em] w-full text-center leading-[1.25] [overflow-wrap:normal] [word-break:keep-all]">{c.name}</span>
               </button>
             );
           })}
@@ -196,7 +196,7 @@ export function QuickAdd() {
         <button
           onClick={() => (dateRef.current?.showPicker?.(), dateRef.current?.focus())}
           className={`press relative rounded-full px-3.5 py-1.5 font-medium ${
-            date !== todayISO() && date !== yesterday ? "bg-fg text-bg" : "bg-surface text-muted"
+            date !== todayISO() && date !== yesterday ? "bg-fg text-bg" : "bg-inset text-muted"
           }`}
         >
           {date !== todayISO() && date !== yesterday
@@ -237,8 +237,7 @@ export function QuickAdd() {
       <button
         onClick={save}
         disabled={!valid}
-        className="press w-full rounded-2xl py-4 text-base font-semibold text-black transition-opacity disabled:opacity-35"
-        style={{ background: isExp ? "var(--exp)" : "var(--inc)" }}
+        className={`press w-full rounded-2xl py-4 text-base font-semibold transition-opacity disabled:opacity-35 ${isExp ? "bg-exp text-on-exp" : "bg-inc text-on-inc"}`}
       >
         {editing ? "Guardar cambios" : isExp ? "Guardar gasto" : "Guardar ingreso"}
       </button>

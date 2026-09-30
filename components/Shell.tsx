@@ -6,6 +6,7 @@ import { useEffect, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
 import { HomeIcon, ListIcon, PlusIcon, RepeatIcon, UserIcon, CloudOffIcon } from "./Icons";
 import { QuickAdd } from "./QuickAdd";
+import { useIosViewportFix } from "./useIosViewportFix";
 import { PrelaunchBanner, PrelaunchCard, usePrelaunch } from "./LaunchGate";
 
 const NAV = [
@@ -20,6 +21,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const path = usePathname();
   const { openSheet, toastMsg, pendingCount, sheet } = useStore();
   const prelaunch = usePrelaunch();
+  useIosViewportFix();
   // En modo preparación solo están habilitados Fijos y Perfil
   const blocked = prelaunch && (path === "/" || path === "/movimientos");
   const items = NAV.filter((i) => !prelaunch || (i !== null && i.href !== "/movimientos"));
@@ -44,30 +46,39 @@ export function Shell({ children }: { children: ReactNode }) {
       {prelaunch && !blocked && <PrelaunchBanner />}
       {blocked ? <PrelaunchCard /> : children}
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/80 pb-[max(0.5rem,calc(env(safe-area-inset-bottom)-0.9rem))] backdrop-blur-2xl">
-        <ul className="mx-auto flex w-full max-w-md items-center justify-between px-3 pt-1.5">
+      <nav
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/85 backdrop-blur-2xl"
+        style={{ transform: "translateY(var(--ios-gap, 0px))", paddingBottom: "max(0.375rem, calc(env(safe-area-inset-bottom) - 0.75rem))" }}
+      >
+        <ul className="mx-auto flex h-[3.75rem] w-full max-w-md items-stretch justify-between px-2">
           {items.map((item) =>
             item === null ? (
-              <li key="fab" className="-mt-7 px-1">
+              <li key="fab" className="grid w-20 shrink-0 place-items-center">
                 <button
                   onClick={() => openSheet()}
                   aria-label="Anotar movimiento"
-                  className="press grid size-16 place-items-center rounded-full text-accent-ink shadow-[0_10px_30px_-6px_rgb(94_234_212/0.6)] ring-[3px] ring-white/15"
+                  className="press -mt-6 grid size-[3.75rem] place-items-center rounded-full text-accent-ink shadow-[0_8px_24px_-6px_rgb(20_184_166/0.55)] ring-4 ring-bg"
                   style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}
                 >
-                  <PlusIcon width={30} height={30} />
+                  <PlusIcon width={28} height={28} />
                 </button>
               </li>
             ) : (
-              <li key={item.href} className="flex-1">
+              <li key={item.href} className="flex flex-1">
                 <Link
                   href={item.href}
                   aria-current={path === item.href ? "page" : undefined}
-                  className={`press flex flex-col items-center gap-0.5 rounded-full py-2 text-[11px] font-medium transition-colors ${
+                  className={`press flex flex-1 flex-col items-center justify-center gap-1 text-[10.5px] font-medium tracking-tight transition-colors ${
                     path === item.href ? "text-fg" : "text-muted"
                   }`}
                 >
-                  <item.Icon width={22} height={22} strokeWidth={path === item.href ? 2.3 : 1.8} />
+                  <span
+                    className={`grid h-7 w-12 place-items-center rounded-full transition-colors ${
+                      path === item.href ? "bg-inset" : ""
+                    }`}
+                  >
+                    <item.Icon width={21} height={21} strokeWidth={path === item.href ? 2.3 : 1.8} />
+                  </span>
                   {item.label}
                 </Link>
               </li>
