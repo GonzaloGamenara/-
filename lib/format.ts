@@ -11,12 +11,16 @@ const moneyFmtDec = new Intl.NumberFormat("es-AR", {
 });
 const oneDec = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 });
 
+import { MASK, isHidden } from "./privacy";
+
 export function money(n: number, opts: { decimals?: boolean } = {}) {
+  if (isHidden()) return MASK;
   const hasCents = Math.round(n * 100) % 100 !== 0;
   return (opts.decimals || hasCents ? moneyFmtDec : moneyFmt).format(n).replace(/ /g, " ");
 }
 /** $124k · $1,2M — para espacios chicos */
 export function compact(n: number) {
+  if (isHidden()) return MASK;
   const a = Math.abs(n);
   const sign = n < 0 ? "−" : "";
   if (a >= 1e6) return `${sign}$${oneDec.format(a / 1e6)}M`;

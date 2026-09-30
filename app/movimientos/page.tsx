@@ -6,6 +6,7 @@ import { useStore } from "@/lib/store";
 import { dayLabel, money } from "@/lib/format";
 import { mine } from "@/lib/types";
 import { MonthSwitcher } from "@/components/MonthSwitcher";
+import { EyeToggle } from "@/components/EyeToggle";
 import { PageHeader } from "@/components/PageHeader";
 import { TxRow } from "@/components/TxRow";
 import { SearchIcon, XIcon } from "@/components/Icons";
@@ -61,7 +62,7 @@ function Movimientos() {
 
   return (
     <div className="grid gap-3">
-      <PageHeader title="Movimientos" right={<MonthSwitcher />} />
+      <PageHeader title="Movimientos" right={<div className="flex items-center gap-1.5"><EyeToggle /><MonthSwitcher /></div>} />
 
       <label className="rise flex items-center gap-2 rounded-2xl border border-line bg-surface px-3.5 py-2.5 focus-within:border-accent2" style={{ animationDelay: "40ms" }}>
         <SearchIcon width={18} height={18} className="shrink-0 text-muted" />

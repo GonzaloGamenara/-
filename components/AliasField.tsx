@@ -6,7 +6,7 @@ import { copyText } from "@/lib/share";
 
 /** Tu alias de Mercado Pago / CBU (va en el mensaje cuando pedís plata). */
 export function AliasField({ compact = false }: { compact?: boolean }) {
-  const { alias, saveAlias, toast } = useStore();
+  const { alias, saveAlias, toast, hideAmounts } = useStore();
   const [value, setValue] = useState(alias);
   const [editing, setEditing] = useState(!alias);
   const [busy, setBusy] = useState(false);
@@ -22,7 +22,7 @@ export function AliasField({ compact = false }: { compact?: boolean }) {
       <div className={`${wrap} !flex items-center gap-3`}>
         <span className="min-w-0 flex-1">
           <span className="block text-xs text-muted">Cobrás a</span>
-          <span className="block truncate font-semibold">{alias}</span>
+          <span className="block truncate font-semibold">{hideAmounts ? "••••••••" : alias}</span>
         </span>
         <button
           onClick={async () => toast((await copyText(alias)) ? "Alias copiado ✓" : "No se pudo copiar")}

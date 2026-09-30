@@ -10,13 +10,14 @@ import Link from "next/link";
 import { ChevronRight, PlusIcon, SplitIcon, TrashIcon } from "@/components/Icons";
 import { AliasField } from "@/components/AliasField";
 import { ExportPanel } from "@/components/ExportPanel";
+import { EyeToggle } from "@/components/EyeToggle";
 
 const EMOJIS = ["🛒", "🍔", "☕", "🍕", "🚌", "🚗", "⛽", "🏠", "💡", "📱", "📺", "🎮", "💊", "🏥", "📚", "🎓", "👕", "👟", "🎉", "🍻", "🎁", "✈️", "🐶", "💇", "🏋️", "💼", "💰", "🏷️", "🧩", "✨"];
 
 const PALETTE = ["#34d399", "#4ade80", "#a3e635", "#facc15", "#fb923c", "#f87171", "#fb7185", "#f472b6", "#c084fc", "#a78bfa", "#60a5fa", "#22d3ee", "#2dd4bf", "#94a3b8"];
 
 export default function Ajustes() {
-  const { email, categories, signOut, saveCategory } = useStore();
+  const { email, categories, signOut, saveCategory, hideAmounts } = useStore();
   const [editing, setEditing] = useState<Partial<Category> | null>(null);
 
 
@@ -35,7 +36,7 @@ export default function Ajustes() {
 
   return (
     <div className="grid gap-5">
-      <PageHeader title="Perfil" subtitle={email} />
+      <PageHeader title="Perfil" subtitle={hideAmounts ? "•••••@•••" : email} right={<EyeToggle />} />
 
       <MigrationNotice />
 

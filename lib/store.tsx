@@ -13,6 +13,7 @@ import {
 import { usePrelaunch } from "@/components/LaunchGate";
 import { launchMonth } from "./launch";
 import { supabase } from "./supabase";
+import { loadHidden, setHidden } from "./privacy";
 import type { Card, Category, Kind, Purchase, Recurring, Split, Transaction } from "./types";
 import { buildInstallments } from "./cards";
 import {
@@ -128,6 +129,9 @@ interface Store {
   purchaseSheet: PurchaseSheetState;
   openPurchase: (s?: Partial<PurchaseSheetState>) => void;
   closePurchase: () => void;
+  /** Modo privado: montos ocultos */
+  hideAmounts: boolean;
+  toggleHideAmounts: () => void;
   /** Recarga todo (después de cambios hechos fuera del store) */
   reload: () => Promise<void>;
 }
@@ -195,6 +199,17 @@ export function DataProvider({
   children: ReactNode;
 }) {
   const [alias, setAlias] = useState(initialAlias);
+  const [hideAmounts, setHideAmounts] = useState(() => {
+    const v = typeof window !== "undefined" && loadHidden();
+    setHidden(!!v);
+    return !!v;
+  });
+  const toggleHideAmounts = useCallback(() => {
+    setHideAmounts((v) => {
+      setHidden(!v);
+      return !v;
+    });
+  }, []);
   const [displayName, setDisplayName] = useState("");
   // El alias puede haberse cambiado desde otro dispositivo: lo refrescamos del servidor
   useEffect(() => {
@@ -792,6 +807,8 @@ export function DataProvider({
     openPurchase,
     closePurchase,
     reload,
+    hideAmounts,
+    toggleHideAmounts,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

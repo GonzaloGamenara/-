@@ -16,6 +16,7 @@ import { Sheet } from "@/components/Sheet";
 import { usePrelaunch } from "@/components/LaunchGate";
 import { ChevronRight, PlusIcon } from "@/components/Icons";
 import { CuotasCalcSheet } from "@/components/CuotasCalc";
+import { EyeToggle } from "@/components/EyeToggle";
 
 type Adding = null | "menu" | "calc";
 
@@ -67,9 +68,12 @@ export default function Fijos() {
         title="Fijos"
         subtitle="Todo lo que entra y sale cada mes: sueldo, alquiler, suscripciones y cuotas."
         right={
+          <div className="flex items-center gap-1.5">
+          <EyeToggle />
           <button onClick={() => setAdding("menu")} className="press flex shrink-0 items-center gap-1 rounded-full bg-fg px-4 py-2 text-sm font-semibold text-bg">
             <PlusIcon width={16} height={16} /> Agregar
           </button>
+          </div>
         }
       />
       <MigrationNotice />

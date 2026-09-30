@@ -178,6 +178,7 @@ export function QuickAdd() {
       {/* Monto */}
       <div className="mb-3 text-center">
         <div
+          data-monto
           className={`num flex items-baseline justify-center gap-1 font-semibold transition-colors ${
             flash ? "text-accent2" : amount > 0 ? tone : "text-muted"
           }`}

@@ -6,6 +6,7 @@ import { useStore } from "@/lib/store";
 import { monthStats } from "@/lib/stats";
 import { compact, money, moneyRound, monthLabel } from "@/lib/format";
 import { MonthSwitcher } from "@/components/MonthSwitcher";
+import { EyeToggle } from "@/components/EyeToggle";
 import { PageHeader } from "@/components/PageHeader";
 import { DayBars, Donut } from "@/components/charts";
 import { TxRow } from "@/components/TxRow";
@@ -25,7 +26,7 @@ export default function Home() {
 
   return (
     <div className="grid gap-4">
-      <PageHeader title="Resumen" right={<MonthSwitcher />} />
+      <PageHeader title="Resumen" right={<div className="flex items-center gap-1.5"><EyeToggle /><MonthSwitcher /></div>} />
 
       {loading && txs.length === 0 ? (
         <div className="grid gap-4">

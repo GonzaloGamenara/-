@@ -47,20 +47,34 @@ export function evaluarCuotas({ contado, cuotas, valorCuota, inflacion, demora =
   };
 }
 
-const KEY = "gastos.inflacion";
-/** Inflación mensual que usaste la última vez (queda guardada en el dispositivo). */
-export function inflacionGuardada(def = 2.5) {
+const KEY = "gastos.inflacion.oficial";
+
+export interface InflacionOficial {
+  valor: number; // % mensual
+  fecha: string; // último mes publicado (YYYY-MM-DD)
+}
+
+/** Último dato oficial guardado en el dispositivo (para usarlo al toque o sin conexión). */
+export function inflacionGuardada(): InflacionOficial | null {
   try {
-    const v = Number(localStorage.getItem(KEY));
-    return v > 0 && v < 50 ? v : def;
+    const v = JSON.parse(localStorage.getItem(KEY) ?? "null");
+    return v && Number(v.valor) > 0 ? v : null;
   } catch {
-    return def;
+    return null;
   }
 }
-export function guardarInflacion(v: number) {
+
+/** Trae el último dato del INDEC (vía el servidor de la app) y lo guarda. */
+export async function traerInflacion(): Promise<InflacionOficial | null> {
   try {
-    localStorage.setItem(KEY, String(v));
+    const res = await fetch("/api/inflacion");
+    if (!res.ok) return null;
+    const d = await res.json();
+    if (!(Number(d.valor) > 0)) return null;
+    const out = { valor: Number(d.valor), fecha: String(d.fecha) };
+    localStorage.setItem(KEY, JSON.stringify(out));
+    return out;
   } catch {
-    /* no es crítico */
+    return null;
   }
 }

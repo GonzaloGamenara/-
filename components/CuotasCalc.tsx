@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
-import { evaluarCuotas, guardarInflacion, inflacionGuardada } from "@/lib/cuotasCalc";
-import { money, parseAmount } from "@/lib/format";
+import { evaluarCuotas, inflacionGuardada, traerInflacion, type InflacionOficial } from "@/lib/cuotasCalc";
+import { money, monthLabel, parseAmount } from "@/lib/format";
 import { Sheet } from "./Sheet";
 import { MinusIcon, PlusIcon } from "./Icons";
 
@@ -11,9 +11,30 @@ const pct = (x: number, d = 1) => `${(x * 100).toLocaleString("es-AR", { maximum
 
 /** Resultado: ¿cuotas o contado? (con la inflación mensual editable). */
 export function CuotasVerdict({ contado, total, cuotas }: { contado: number; total: number; cuotas: number }) {
-  const [inf, setInf] = useState("2,5");
-  useEffect(() => setInf(String(inflacionGuardada()).replace(".", ",")), []);
-  const infNum = parseAmount(inf) / 100;
+  // Se usa sola el último dato oficial del INDEC; se puede tocar para probar otro escenario
+  const [oficial, setOficial] = useState<InflacionOficial | null>(null);
+  const [estado, setEstado] = useState<"cargando" | "ok" | "error">("cargando");
+  const [inf, setInf] = useState("");
+  const [editado, setEditado] = useState(false);
+  useEffect(() => {
+    const cached = inflacionGuardada();
+    if (cached) {
+      setOficial(cached);
+      setInf(String(cached.valor).replace(".", ","));
+    }
+    traerInflacion().then((d) => {
+      if (d) {
+        setOficial(d);
+        setEstado("ok");
+        setEditado((e) => {
+          if (!e) setInf(String(d.valor).replace(".", ","));
+          return e;
+        });
+      } else setEstado(cached ? "ok" : "error");
+    });
+  }, []);
+  const infNum = parseAmount(inf || "2,5") / 100;
+  const mesOficial = oficial ? monthLabel(oficial.fecha.slice(0, 7)).toLowerCase() : "";
 
   const ready = contado > 0 && total > 0 && cuotas > 1;
   const r = ready ? evaluarCuotas({ contado, cuotas, valorCuota: total / cuotas, inflacion: infNum }) : null;
@@ -22,16 +43,28 @@ export function CuotasVerdict({ contado, total, cuotas }: { contado: number; tot
     <div className="grid gap-3">
       <label className="flex items-center justify-between gap-3 text-sm text-muted">
         <span>
-          Inflación mensual esperada
-          <span className="block text-xs">Ajustala con el último dato o lo que esperes</span>
+          Inflación mensual
+          <span className="block text-xs">
+            {editado && oficial ? (
+              <button type="button" onClick={() => (setEditado(false), setInf(String(oficial.valor).replace(".", ",")))} className="text-accent2 underline">
+                Volver al dato oficial ({String(oficial.valor).replace(".", ",")}%)
+              </button>
+            ) : oficial ? (
+              `Último dato INDEC (${mesOficial}) · se actualiza solo`
+            ) : estado === "cargando" ? (
+              "Buscando el último dato del INDEC…"
+            ) : (
+              "No pude traer el dato oficial: usando 2,5%"
+            )}
+          </span>
         </span>
         <span className="flex items-center gap-1">
           <input
             value={inf}
+            placeholder="2,5"
             onChange={(e) => {
               setInf(e.target.value);
-              const v = parseAmount(e.target.value);
-              if (v > 0) guardarInflacion(v);
+              setEditado(true);
             }}
             inputMode="decimal"
             className="num w-16 rounded-xl border border-line bg-inset px-2 py-2 text-right text-fg focus:border-accent2"

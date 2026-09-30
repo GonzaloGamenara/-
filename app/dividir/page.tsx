@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase";
 import { PedirButton } from "@/components/PedirButton";
 import type { Split } from "@/lib/types";
 import { PageHeader } from "@/components/PageHeader";
+import { EyeToggle } from "@/components/EyeToggle";
 import { AliasField } from "@/components/AliasField";
 import { NewGroupSheet } from "@/components/NewGroupSheet";
 import { ChevronRight, PlusIcon } from "@/components/Icons";
@@ -41,7 +42,7 @@ function Dividir() {
 
   return (
     <div className="grid gap-5">
-      <PageHeader title="Dividir" subtitle="Cada uno carga lo que pagó y la app te dice quién le debe a quién." />
+      <PageHeader title="Dividir" subtitle="Cada uno carga lo que pagó y la app te dice quién le debe a quién." right={<EyeToggle />} />
 
       {missing ? (
         <div className="glass rounded-3xl border-l-4 border-l-exp p-4 text-sm">
