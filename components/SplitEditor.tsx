@@ -64,6 +64,9 @@ export function SplitEditor({
           onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addName(name))}
           placeholder="¿Con quién? Escribí un nombre"
           aria-label="Nombre"
+          autoComplete="off"
+          autoCorrect="off"
+          name="persona-division"
           maxLength={30}
           enterKeyHint="done"
           className="min-w-0 flex-1 rounded-xl border border-line bg-bg px-3 py-2.5 text-fg placeholder:text-muted/70 focus:border-accent2"

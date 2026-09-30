@@ -200,7 +200,7 @@ function CategoryForm({
           <div className="grid place-items-center rounded-xl border border-line text-3xl" style={{ background: `color-mix(in srgb, ${color} 25%, transparent)` }} aria-hidden>
             {emoji}
           </div>
-          <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre" maxLength={24} />
+          <input className={field} autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre" maxLength={24} />
         </div>
         <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-10">
           {EMOJIS.map((e) => (

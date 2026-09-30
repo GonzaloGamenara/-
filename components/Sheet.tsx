@@ -46,11 +46,17 @@ export function Sheet({
       const keyboard = window.innerHeight - v.height > 120;
       setVv(keyboard ? { top: v.offsetTop, height: v.height } : null);
     };
-    // Al enfocar un campo, que quede centrado dentro de la hoja (no que se mueva la pantalla)
+    // Al enfocar un campo: solo si quedó tapado, lo movemos dentro de la hoja (nunca la pantalla)
     const onFocus = (e: FocusEvent) => {
       const el = e.target as HTMLElement;
-      if (!panel.current?.contains(el) || !el.matches("input, textarea, select")) return;
-      setTimeout(() => el.scrollIntoView({ block: "center", behavior: "smooth" }), 250);
+      const box = panel.current;
+      if (!box?.contains(el) || !el.matches("input, textarea, select")) return;
+      setTimeout(() => {
+        const r = el.getBoundingClientRect();
+        const b = box.getBoundingClientRect();
+        if (r.top < b.top + 8) box.scrollBy({ top: r.top - b.top - 16, behavior: "smooth" });
+        else if (r.bottom > b.bottom - 8) box.scrollBy({ top: r.bottom - b.bottom + 16, behavior: "smooth" });
+      }, 300);
     };
     update();
     v.addEventListener("resize", update);
@@ -67,7 +73,8 @@ export function Sheet({
   return (
     <div
       className="fixed inset-x-0 top-0 z-50 flex h-dvh items-end justify-center sm:items-center"
-      style={vv ? { top: vv.top, height: vv.height } : undefined}
+      // Con teclado: la hoja ocupa el área visible, respetando la barra de estado del iPhone
+      style={vv ? { top: vv.top, height: vv.height, paddingTop: "calc(env(safe-area-inset-top) + 8px)" } : undefined}
       role="dialog"
       aria-modal="true"
     >

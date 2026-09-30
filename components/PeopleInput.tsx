@@ -45,6 +45,9 @@ export function PeopleInput({
           onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), add(name))}
           placeholder={placeholder}
           aria-label="Nombre"
+          autoComplete="off"
+          autoCorrect="off"
+          name="persona-cuenta"
           maxLength={30}
           enterKeyHint="done"
           className="min-w-0 flex-1 rounded-xl border border-line bg-inset px-3 py-2.5 text-fg placeholder:text-muted/70 focus:border-accent2"

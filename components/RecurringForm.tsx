@@ -51,7 +51,7 @@ export function RecurringForm({
       >
         <label className="grid gap-1 text-sm text-muted">
           Nombre
-          <input className={field} value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder={card ? "Spotify, Netflix, iCloud…" : kind === "income" ? "Sueldo, Beca…" : "Alquiler, Luz…"} />
+          <input className={field} autoComplete="off" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder={card ? "Spotify, Netflix, iCloud…" : kind === "income" ? "Sueldo, Beca…" : "Alquiler, Luz…"} />
         </label>
         {kind === "expense" && cards.length > 0 && (
           <div className="grid gap-1.5">
