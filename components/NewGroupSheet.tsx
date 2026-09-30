@@ -29,7 +29,7 @@ export function NewGroupSheet({ onClose }: { onClose: () => void }) {
       <div className="grid gap-5">
         <label className="grid gap-1.5 text-sm text-muted">
           ¿Qué es?
-          <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="Asado del sábado, viaje, cena…" maxLength={50} autoFocus />
+          <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="Asado del sábado, viaje, cena…" maxLength={50} />
         </label>
         <div className="grid gap-1.5">
           <span className="text-sm text-muted">¿Quiénes están, además de vos?</span>

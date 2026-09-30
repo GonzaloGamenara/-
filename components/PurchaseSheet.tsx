@@ -101,7 +101,7 @@ export function PurchaseSheet() {
 
         <label className="grid gap-1 text-sm text-muted">
           ¿Qué compraste?
-          <input className={field} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Heladera, zapatillas, súper…" maxLength={60} autoFocus={!editing} />
+          <input className={field} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Heladera, zapatillas, súper…" maxLength={60} />
         </label>
 
         <div className="grid gap-1.5">

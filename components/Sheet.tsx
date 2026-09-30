@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { XIcon } from "./Icons";
 
 export function Sheet({
@@ -35,13 +35,47 @@ export function Sheet({
     };
   }, [open, onClose]);
 
+  // Con el teclado abierto, iOS achica el área visible pero no el layout: acomodamos la hoja
+  // al área visible real (justo arriba del teclado) en vez de dejar que empuje toda la vista.
+  const [vv, setVv] = useState<{ top: number; height: number } | null>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open || !window.visualViewport) return;
+    const v = window.visualViewport;
+    const update = () => {
+      const keyboard = window.innerHeight - v.height > 120;
+      setVv(keyboard ? { top: v.offsetTop, height: v.height } : null);
+    };
+    // Al enfocar un campo, que quede centrado dentro de la hoja (no que se mueva la pantalla)
+    const onFocus = (e: FocusEvent) => {
+      const el = e.target as HTMLElement;
+      if (!panel.current?.contains(el) || !el.matches("input, textarea, select")) return;
+      setTimeout(() => el.scrollIntoView({ block: "center", behavior: "smooth" }), 250);
+    };
+    update();
+    v.addEventListener("resize", update);
+    v.addEventListener("scroll", update);
+    document.addEventListener("focusin", onFocus);
+    return () => {
+      v.removeEventListener("resize", update);
+      v.removeEventListener("scroll", update);
+      document.removeEventListener("focusin", onFocus);
+    };
+  }, [open]);
+
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-x-0 top-0 z-50 flex h-dvh items-end justify-center sm:items-center"
+      style={vv ? { top: vv.top, height: vv.height } : undefined}
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="fade-in absolute inset-0 touch-none bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div
+        ref={panel}
         className={`sheet-in relative w-full max-w-lg overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-[32px] border border-line bg-bg/95 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl backdrop-blur-2xl sm:rounded-[32px] ${
-          tall ? "max-h-[96dvh]" : "max-h-[88dvh]"
+          vv ? "max-h-full rounded-b-none" : tall ? "max-h-[96dvh]" : "max-h-[88dvh]"
         }`}
       >
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line sm:hidden" />

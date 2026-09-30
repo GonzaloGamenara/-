@@ -38,7 +38,7 @@ export function CardForm({ initial, onClose }: { initial: Partial<Card>; onClose
         </div>
         <label className="grid gap-1 text-sm text-muted">
           Nombre
-          <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="Visa Galicia, Naranja…" maxLength={30} autoFocus={!initial.id} />
+          <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="Visa Galicia, Naranja…" maxLength={30} />
         </label>
         <label className="grid gap-1 text-sm text-muted">
           Día de pago (todos los meses)

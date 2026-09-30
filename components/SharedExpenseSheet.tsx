@@ -61,7 +61,6 @@ export function SharedExpenseSheet({
               onChange={(e) => setAmountRaw(e.target.value)}
               inputMode="decimal"
               placeholder="$ 0"
-              autoFocus={!initial}
               className="num w-full rounded-xl border border-line bg-inset px-4 py-3 text-lg font-semibold text-fg placeholder:text-muted/60 focus:border-accent2"
             />
           </label>
