@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
-import { supabase } from "@/lib/supabase";
 import type { Category, Kind } from "@/lib/types";
 import { Sheet } from "@/components/Sheet";
 import { PageHeader } from "@/components/PageHeader";
@@ -10,52 +9,16 @@ import { MigrationNotice } from "@/components/MigrationNotice";
 import Link from "next/link";
 import { ChevronRight, PlusIcon, SplitIcon, TrashIcon } from "@/components/Icons";
 import { AliasField } from "@/components/AliasField";
+import { ExportPanel } from "@/components/ExportPanel";
 
 const EMOJIS = ["🛒", "🍔", "☕", "🍕", "🚌", "🚗", "⛽", "🏠", "💡", "📱", "📺", "🎮", "💊", "🏥", "📚", "🎓", "👕", "👟", "🎉", "🍻", "🎁", "✈️", "🐶", "💇", "🏋️", "💼", "💰", "🏷️", "🧩", "✨"];
 
 const PALETTE = ["#34d399", "#4ade80", "#a3e635", "#facc15", "#fb923c", "#f87171", "#fb7185", "#f472b6", "#c084fc", "#a78bfa", "#60a5fa", "#22d3ee", "#2dd4bf", "#94a3b8"];
 
 export default function Ajustes() {
-  const { email, categories, signOut, toast, saveCategory, cards } = useStore();
+  const { email, categories, signOut, saveCategory } = useStore();
   const [editing, setEditing] = useState<Partial<Category> | null>(null);
-  const [busy, setBusy] = useState(false);
 
-  async function exportCsv() {
-    setBusy(true);
-    const q = (cols: string) => supabase().from("transactions").select(cols).order("occurred_on", { ascending: false });
-    let res = await q("occurred_on,kind,amount,note,category_id,card_id,installment,my_share");
-    if (res.error) res = await q("occurred_on,kind,amount,note,category_id");
-    const { error } = res;
-    const data = res.data as unknown as {
-      occurred_on: string; kind: string; amount: number; note: string | null; category_id: string | null;
-      card_id?: string | null; installment?: number | null; my_share?: number | null;
-    }[] | null;
-    setBusy(false);
-    if (error || !data) return toast("No se pudo exportar");
-    const name = (id: string | null) => categories.find((c) => c.id === id)?.name ?? "";
-    const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
-    // Excel en español espera ";" como separador y "," como decimal
-    const rows = [
-      "fecha;tipo;monto;tu_parte;categoria;nota;tarjeta;cuota",
-      ...data.map((t) =>
-        [
-          t.occurred_on,
-          t.kind === "expense" ? "gasto" : "ingreso",
-          String(t.amount).replace(".", ","),
-          String(t.my_share ?? t.amount).replace(".", ","),
-          esc(name(t.category_id)),
-          esc(t.note ?? ""),
-          esc(cards.find((c) => c.id === t.card_id)?.name ?? ""),
-          t.installment ?? "",
-        ].join(";"),
-      ),
-    ];
-    const url = URL.createObjectURL(new Blob(["﻿" + rows.join("\n")], { type: "text/csv;charset=utf-8" }));
-    const a = Object.assign(document.createElement("a"), { href: url, download: "gastos.csv" });
-    a.click();
-    URL.revokeObjectURL(url);
-    toast(`Exportados ${data.length} movimientos`);
-  }
 
   // Instalación como app (Android/Chrome); en iPhone hay que hacerlo desde Compartir
   const [installEvt, setInstallEvt] = useState<(Event & { prompt: () => Promise<void> }) | null>(null);
@@ -129,11 +92,9 @@ export default function Ajustes() {
         })}
       </section>
 
+      <ExportPanel />
+
       <section className="glass rise grid divide-y divide-line overflow-hidden rounded-3xl">
-        <button onClick={exportCsv} disabled={busy} className="press px-5 py-4 text-left">
-          <span className="font-medium">Exportar todo a CSV</span>
-          <span className="block text-xs text-muted">Para abrir en Excel o Google Sheets</span>
-        </button>
         <button onClick={signOut} className="press px-5 py-4 text-left font-medium text-exp">
           Cerrar sesión
         </button>
