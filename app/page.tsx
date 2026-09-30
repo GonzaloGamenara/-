@@ -65,7 +65,7 @@ export default function Home() {
               </div>
             </div>
             {s.isCurrent && s.projected > s.spent + 1 && (
-              <p className="relative mt-4 rounded-2xl bg-surface px-3.5 py-2.5 text-sm text-muted">
+              <p className="relative mt-4 rounded-2xl bg-inset px-3.5 py-2.5 text-sm text-muted">
                 A este ritmo cerrás el mes en <b className="num text-fg">{moneyRound(s.projected)}</b>
                 {s.upcomingExpense > 0 && <> · incluye {compact(s.upcomingExpense)} de fijos por venir</>}.
               </p>

@@ -167,7 +167,7 @@ export function QuickAdd() {
                 key={c.id}
                 onClick={() => setCatId(on ? null : c.id)}
                 className={`press flex flex-col items-center gap-0.5 rounded-2xl border px-1 py-2 text-[11px] font-medium leading-tight ${
-                  on ? "border-transparent text-black" : "border-line bg-surface text-fg"
+                  on ? "border-transparent text-black" : "border-line bg-inset text-fg"
                 }`}
                 style={on ? { background: c.color } : undefined}
               >
@@ -188,7 +188,7 @@ export function QuickAdd() {
           <button
             key={d.v}
             onClick={() => setDate(d.v)}
-            className={`press rounded-full px-3.5 py-1.5 font-medium ${date === d.v ? "bg-fg text-bg" : "bg-surface text-muted"}`}
+            className={`press rounded-full px-3.5 py-1.5 font-medium ${date === d.v ? "bg-fg text-bg" : "bg-inset text-muted"}`}
           >
             {d.label}
           </button>
@@ -227,7 +227,7 @@ export function QuickAdd() {
             key={k}
             onClick={() => setRaw((r) => press(r, k))}
             aria-label={k === "⌫" ? "Borrar dígito" : k}
-            className="press num grid h-[52px] place-items-center rounded-2xl bg-surface text-2xl font-medium"
+            className="press num grid h-[52px] place-items-center rounded-2xl bg-inset text-2xl font-medium"
           >
             {k === "⌫" ? <BackspaceIcon width={24} height={24} /> : k}
           </button>

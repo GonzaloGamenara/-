@@ -112,7 +112,7 @@ function RecurringForm({
 
   const amountNum = parseAmount(amount);
   const valid = name.trim() && amountNum > 0 && Number(day) >= 1 && Number(day) <= 31;
-  const field = "rounded-xl border border-line bg-surface px-4 py-3 outline-none focus:border-accent2";
+  const field = "rounded-xl border border-line bg-inset px-4 py-3 outline-none focus:border-accent2";
 
   return (
     <Sheet open onClose={onClose} title={`${initial.id ? "Editar" : "Nuevo"} ${kind === "income" ? "ingreso" : "gasto"} fijo`}>
@@ -148,7 +148,7 @@ function RecurringForm({
             ))}
           </select>
         </label>
-        <label className="flex items-center justify-between rounded-xl bg-surface px-4 py-3 text-sm">
+        <label className="flex items-center justify-between rounded-xl bg-inset px-4 py-3 text-sm">
           Activo (se carga cada mes)
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="size-5 accent-[var(--accent-2)]" />
         </label>

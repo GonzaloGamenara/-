@@ -98,7 +98,7 @@ function Login() {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="rounded-xl border border-line bg-surface px-4 py-3 text-fg outline-none focus:border-accent2"
+            className="rounded-xl border border-line bg-inset px-4 py-3 text-fg outline-none focus:border-accent2"
           />
         </label>
         <label className="grid gap-1.5 text-sm text-muted">
@@ -111,7 +111,7 @@ function Login() {
               autoComplete={mode === "in" ? "current-password" : "new-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-line bg-surface py-3 pl-4 pr-16 text-fg outline-none focus:border-accent2"
+              className="w-full rounded-xl border border-line bg-inset py-3 pl-4 pr-16 text-fg outline-none focus:border-accent2"
             />
             <button
               type="button"

@@ -140,7 +140,7 @@ function CategoryForm({
   const [name, setName] = useState(initial.name ?? "");
   const [emoji, setEmoji] = useState(initial.emoji ?? "🏷️");
   const [color, setColor] = useState(initial.color ?? PALETTE[0]);
-  const field = "rounded-xl border border-line bg-surface px-4 py-3 outline-none focus:border-accent2";
+  const field = "rounded-xl border border-line bg-inset px-4 py-3 outline-none focus:border-accent2";
 
   return (
     <Sheet open onClose={onClose} title={initial.id ? "Editar categoría" : "Nueva categoría"}>

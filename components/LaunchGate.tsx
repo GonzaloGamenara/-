@@ -76,7 +76,7 @@ export function PrelaunchCard() {
           <Link href="/fijos" className="press rounded-2xl bg-accent py-3 text-center text-sm font-semibold text-accent-ink">
             Cargar fijos
           </Link>
-          <Link href="/ajustes" className="press rounded-2xl bg-surface py-3 text-center text-sm font-semibold">
+          <Link href="/ajustes" className="press rounded-2xl bg-inset py-3 text-center text-sm font-semibold">
             Categorías
           </Link>
         </div>
@@ -88,7 +88,7 @@ export function PrelaunchCard() {
 /** Aviso chico para las pantallas habilitadas durante la preparación. */
 export function PrelaunchBanner() {
   return (
-    <div className="fade-in mb-3 rounded-2xl border border-line bg-surface px-3.5 py-2.5 text-sm text-muted">
+    <div className="fade-in mb-3 rounded-2xl border border-line bg-inset px-3.5 py-2.5 text-sm text-muted">
       <b className="text-fg">Modo preparación.</b> Nada se calcula ni se carga hasta el {new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "long" }).format(new Date(launchTime()))}.
     </div>
   );

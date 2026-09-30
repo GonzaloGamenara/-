@@ -5,6 +5,7 @@
   --bg: #07070d;
   --surface: rgb(255 255 255 / 0.055);
   --surface-2: rgb(255 255 255 / 0.09);
+  --inset: rgb(255 255 255 / 0.07);
   --line: rgb(255 255 255 / 0.09);
   --fg: #f5f5fa;
   --muted: #9b9bb2;
@@ -24,7 +25,8 @@
     --bg: #f3f2f8;
     --surface: rgb(255 255 255 / 0.75);
     --surface-2: rgb(255 255 255 / 0.95);
-    --line: rgb(20 20 40 / 0.09);
+    --inset: rgb(30 30 60 / 0.07);
+    --line: rgb(20 20 40 / 0.12);
     --fg: #14141f;
     --muted: #6b6b83;
     --accent: #1f1f2e;
@@ -44,6 +46,7 @@
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface2: var(--surface-2);
+  --color-inset: var(--inset);
   --color-line: var(--line);
   --color-fg: var(--fg);
   --color-muted: var(--muted);
