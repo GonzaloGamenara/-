@@ -34,7 +34,7 @@ export function Shell({ children }: { children: ReactNode }) {
   }, [openSheet, prelaunch]);
 
   return (
-    <div className="mx-auto min-h-dvh w-full max-w-2xl px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
+    <div className="mx-auto min-h-dvh w-full max-w-2xl px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
       {pendingCount > 0 && (
         <div className="fade-in mb-3 flex items-center gap-2 rounded-2xl border border-line bg-surface px-3 py-2 text-sm text-muted">
           <CloudOffIcon width={16} height={16} />
@@ -44,8 +44,8 @@ export function Shell({ children }: { children: ReactNode }) {
       {prelaunch && !blocked && <PrelaunchBanner />}
       {blocked ? <PrelaunchCard /> : children}
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-2xl">
-        <ul className="mx-auto flex w-full max-w-md items-center justify-between px-3 pb-1 pt-1.5">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/80 pb-[max(0.5rem,calc(env(safe-area-inset-bottom)-0.9rem))] backdrop-blur-2xl">
+        <ul className="mx-auto flex w-full max-w-md items-center justify-between px-3 pt-1.5">
           {items.map((item) =>
             item === null ? (
               <li key="fab" className="-mt-7 px-1">
