@@ -1,7 +1,8 @@
-import type { Category, Recurring, Transaction } from "./types";
+import { mine, type Category, type Recurring, type Transaction } from "./types";
 import { currentMonth, daysInMonth, dueDate, todayISO } from "./format";
 
-const sum = (xs: Transaction[]) => xs.reduce((a, t) => a + t.amount, 0);
+/** Suma lo que te toca a vos (si un gasto está dividido, solo tu parte) */
+const sum = (xs: Transaction[]) => xs.reduce((a, t) => a + mine(t), 0);
 
 export interface CatSlice {
   id: string | null;
@@ -18,7 +19,7 @@ export function byCategory(txs: Transaction[], cats: Category[]): CatSlice[] {
   for (const t of txs) {
     const k = t.category_id;
     const cur = map.get(k) ?? { total: 0, count: 0 };
-    cur.total += t.amount;
+    cur.total += mine(t);
     cur.count++;
     map.set(k, cur);
   }
@@ -73,7 +74,7 @@ export function monthStats(
   const projected = isCurrent ? spent + upcomingExpense + dailyAvg * (dim - elapsed) : spent;
 
   const perDay = Array.from({ length: dim }, () => 0);
-  for (const t of expenses) perDay[Number(t.occurred_on.slice(8, 10)) - 1] += t.amount;
+  for (const t of expenses) perDay[Number(t.occurred_on.slice(8, 10)) - 1] += mine(t);
 
   return {
     spent,
@@ -88,6 +89,7 @@ export function monthStats(
     upcoming,
     upcomingExpense,
     upcomingIncome,
+    cardSpent: sum(expenses.filter((t) => t.card_id)),
     elapsed,
     dim,
     perDay,

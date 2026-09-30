@@ -2,15 +2,20 @@
 
 import { useStore } from "@/lib/store";
 import { dayLabel, money } from "@/lib/format";
-import type { Transaction } from "@/lib/types";
+import { mine, type Transaction } from "@/lib/types";
 
 export function TxRow({ tx, showDate = false }: { tx: Transaction; showDate?: boolean }) {
-  const { categories, openSheet } = useStore();
+  const { categories, cards, purchases, openSheet, openPurchase } = useStore();
   const cat = categories.find((c) => c.id === tx.category_id);
+  const card = tx.card_id ? cards.find((c) => c.id === tx.card_id) : undefined;
+  const purchase = tx.purchase_id ? purchases.find((p) => p.id === tx.purchase_id) : undefined;
   const isExp = tx.kind === "expense";
+  const my = mine(tx);
+  const split = my < tx.amount - 0.005;
+
   return (
     <button
-      onClick={() => openSheet({ editing: tx })}
+      onClick={() => (purchase ? openPurchase({ purchase }) : openSheet({ editing: tx }))}
       className="press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left hover:bg-surface"
     >
       <span
@@ -21,16 +26,28 @@ export function TxRow({ tx, showDate = false }: { tx: Transaction; showDate?: bo
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-medium">{tx.note || cat?.name || "Sin categoría"}</span>
-        <span className="flex items-center gap-1.5 text-xs text-muted">
-          {tx.note ? (cat?.name ?? "Sin categoría") : showDate ? dayLabel(tx.occurred_on) : "Sin nota"}
-          {tx.note && showDate && <span>· {dayLabel(tx.occurred_on)}</span>}
-          {tx.recurring_id && <span className="rounded-full bg-surface px-1.5 py-px text-[10px]">fijo</span>}
-          {tx.pending && <span className="rounded-full bg-surface px-1.5 py-px text-[10px]">sin subir</span>}
+        <span className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs text-muted">
+          <span className="truncate">
+            {tx.note ? (cat?.name ?? "Sin categoría") : showDate ? dayLabel(tx.occurred_on) : "Sin nota"}
+            {tx.note && showDate && ` · ${dayLabel(tx.occurred_on)}`}
+          </span>
+          {card && (
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-inset px-1.5 py-px text-[10px] text-fg/80">
+              <span className="size-1.5 rounded-full" style={{ background: card.color }} />
+              {tx.installment && purchase ? `${tx.installment}/${purchase.installments}` : card.name}
+            </span>
+          )}
+          {tx.recurring_id && !card && <span className="shrink-0 rounded-full bg-inset px-1.5 py-px text-[10px]">fijo</span>}
+          {split && <span className="shrink-0 rounded-full bg-inset px-1.5 py-px text-[10px]">dividido</span>}
+          {tx.pending && <span className="shrink-0 rounded-full bg-inset px-1.5 py-px text-[10px]">sin subir</span>}
         </span>
       </span>
-      <span className={`num shrink-0 text-[15px] font-semibold ${isExp ? "" : "text-inc"}`}>
-        {isExp ? "−" : "+"}
-        {money(tx.amount)}
+      <span className="shrink-0 text-right">
+        <span className={`num block text-[15px] font-semibold ${isExp ? "" : "text-inc"}`}>
+          {isExp ? "−" : "+"}
+          {money(my)}
+        </span>
+        {split && <span className="num text-[11px] text-muted">de {money(tx.amount)}</span>}
       </span>
     </button>
   );

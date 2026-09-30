@@ -13,7 +13,8 @@ import {
 import { usePrelaunch } from "@/components/LaunchGate";
 import { launchMonth } from "./launch";
 import { supabase } from "./supabase";
-import type { Category, Kind, Recurring, Transaction } from "./types";
+import type { Card, Category, Kind, Purchase, Recurring, Split, Transaction } from "./types";
+import { buildInstallments } from "./cards";
 import {
   addMonths,
   currentMonth,
@@ -52,6 +53,32 @@ export interface NewTx {
   occurred_on: string;
 }
 
+/** Parte de otra persona en un gasto dividido */
+export interface SplitShare {
+  name: string;
+  amount: number;
+  settled_on?: string | null;
+}
+
+export interface PurchaseInput {
+  id?: string;
+  card_id: string;
+  description: string;
+  category_id: string | null;
+  total_amount: number;
+  installments: number;
+  first_period: string;
+  from_installment: number;
+  purchased_on: string;
+  splits: SplitShare[];
+}
+
+export interface PurchaseSheetState {
+  open: boolean;
+  purchase?: Purchase | null;
+  cardId?: string | null;
+}
+
 interface Store {
   userId: string;
   email: string;
@@ -65,10 +92,20 @@ interface Store {
   /** Movimientos del mes anterior (para comparar) */
   prevTxs: Transaction[];
   pendingCount: number;
-  addTx: (t: NewTx) => Promise<void>;
+  cards: Card[];
+  purchases: Purchase[];
+  splits: Split[];
+  /** Falta correr la migración 002 en Supabase */
+  needsMigration: boolean;
+  addTx: (t: NewTx, splits?: SplitShare[]) => Promise<void>;
   updateTx: (id: string, patch: Partial<NewTx>) => Promise<void>;
   deleteTx: (id: string) => Promise<void>;
   saveRecurring: (r: Partial<Recurring> & Pick<Recurring, "kind" | "name" | "amount">) => Promise<void>;
+  saveCard: (c: Partial<Card> & Pick<Card, "name" | "due_day">) => Promise<void>;
+  deleteCard: (id: string) => Promise<void>;
+  savePurchase: (p: PurchaseInput) => Promise<boolean>;
+  deletePurchase: (id: string) => Promise<void>;
+  settleSplit: (id: string, settled: boolean) => Promise<void>;
   deleteRecurring: (id: string) => Promise<void>;
   saveCategory: (c: Partial<Category> & Pick<Category, "kind" | "name">) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
@@ -78,6 +115,11 @@ interface Store {
   sheet: SheetState;
   openSheet: (s?: Partial<SheetState>) => void;
   closeSheet: () => void;
+  purchaseSheet: PurchaseSheetState;
+  openPurchase: (s?: Partial<PurchaseSheetState>) => void;
+  closePurchase: () => void;
+  /** Recarga todo (después de cambios hechos fuera del store) */
+  reload: () => Promise<void>;
 }
 
 export interface SheetState {
@@ -116,7 +158,18 @@ const isNetworkError = (e: { message?: string } | null | undefined) =>
   (typeof navigator !== "undefined" && !navigator.onLine) ||
   /fetch|network|load failed|timeout/i.test(e?.message ?? "");
 
-const txColumns = "id,kind,amount,category_id,note,occurred_on,recurring_id,period";
+const legacyTxColumns = "id,kind,amount,category_id,note,occurred_on,recurring_id,period";
+export const txColumns = `${legacyTxColumns},card_id,purchase_id,installment,my_share`;
+/** Error de Postgres/PostgREST por columna o tabla inexistente (migración sin correr) */
+const isMissingSchema = (e: { message?: string; code?: string } | null | undefined) =>
+  !!e && (e.code === "42703" || e.code === "42P01" || e.code === "PGRST200" || e.code === "PGRST204" || /does not exist|could not find/i.test(e.message ?? ""));
+
+/** PostgREST devuelve numeric como número, pero por las dudas normalizamos */
+const normalizeTx = (t: Transaction): Transaction => ({
+  ...t,
+  amount: Number(t.amount),
+  my_share: t.my_share === null || t.my_share === undefined ? t.my_share : Number(t.my_share),
+});
 
 export function DataProvider({
   userId,
@@ -137,6 +190,11 @@ export function DataProvider({
   const [recurring, setRecurring] = useState<Recurring[]>([]);
   const [allTxs, setAllTxs] = useState<Transaction[]>([]);
   const [queue, setQueue] = useState<Transaction[]>([]);
+  const [cards, setCards] = useState<Card[]>([]);
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [splits, setSplits] = useState<Split[]>([]);
+  const [needsMigration, setNeedsMigration] = useState(false);
+  const [purchaseSheet, setPurchaseSheet] = useState<PurchaseSheetState>({ open: false });
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [sheet, setSheet] = useState<SheetState>({ open: false });
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -152,6 +210,11 @@ export function DataProvider({
     [],
   );
   const closeSheet = useCallback(() => setSheet({ open: false }), []);
+  const openPurchase = useCallback(
+    (s: Partial<PurchaseSheetState> = {}) => setPurchaseSheet({ open: true, purchase: null, ...s }),
+    [],
+  );
+  const closePurchase = useCallback(() => setPurchaseSheet({ open: false }), []);
 
   // --- cola offline -------------------------------------------------------
   useEffect(() => setQueue(readJSON<Transaction[]>(queueKey(userId), [])), [userId]);
@@ -192,19 +255,34 @@ export function DataProvider({
       const from = monthStart(addMonths(m, -1));
       const to = monthEnd(m);
       try {
-        const [catsRes, recs, txs] = await Promise.all([
-          db.from("categories").select("*").order("sort").order("created_at"),
-          db.from("recurring").select("*").order("day"),
+        const txQuery = (cols: string) =>
           db
             .from("transactions")
-            .select(txColumns)
+            .select(cols)
             .gte("occurred_on", from)
             .lte("occurred_on", to)
             .order("occurred_on", { ascending: false })
-            .order("created_at", { ascending: false }),
+            .order("created_at", { ascending: false });
+        const [catsRes, recs, txsNew, cardsRes, purchasesRes, splitsRes] = await Promise.all([
+          db.from("categories").select("*").order("sort").order("created_at"),
+          db.from("recurring").select("*").order("day"),
+          txQuery(txColumns),
+          db.from("cards").select("id,name,color,due_day").order("created_at"),
+          db.from("purchases").select("id,card_id,description,category_id,total_amount,installments,first_period,from_installment,purchased_on").order("purchased_on", { ascending: false }),
+          db.from("splits").select("id,transaction_id,purchase_id,name,amount,settled_on").order("created_at", { ascending: false }),
         ]);
+        // Si todavía no se corrió la migración 002, seguimos funcionando con lo básico
+        const missing = isMissingSchema(txsNew.error) || isMissingSchema(cardsRes.error);
+        setNeedsMigration(missing);
+        const txs = isMissingSchema(txsNew.error) ? await txQuery(legacyTxColumns) : txsNew;
         const err = catsRes.error ?? recs.error ?? txs.error;
         if (err) throw err;
+        if (!missing) {
+          const arr = <T,>(d: unknown) => (Array.isArray(d) ? (d as T[]) : []);
+          setCards(arr<Card>(cardsRes.data));
+          setPurchases(arr<Purchase>(purchasesRes.data).map((p) => ({ ...p, total_amount: Number(p.total_amount) })));
+          setSplits(arr<Split>(splitsRes.data).map((x) => ({ ...x, amount: Number(x.amount) })));
+        }
         let catRows = (catsRes.data ?? []) as Category[];
 
         // Primera vez: sembrar categorías por defecto
@@ -216,14 +294,21 @@ export function DataProvider({
           catRows = ins.data as Category[];
         }
 
-        let txData = (txs.data ?? []) as Transaction[];
+        let txData = ((txs.data ?? []) as unknown as Transaction[]).map(normalizeTx);
 
         // Fijos del mes en curso: se generan solos cuando llega su día
         if (m === currentMonth() && !prelaunchRef.current) {
           const today = todayISO();
           const have = new Set(txData.filter((t) => t.period === m).map((t) => t.recurring_id));
           const due = ((recs.data ?? []) as Recurring[])
-            .filter((r) => r.active && !have.has(r.id) && dueDate(m, r.day) <= today)
+            .filter(
+              (r) =>
+                r.active &&
+                !have.has(r.id) &&
+                dueDate(m, r.day) <= today &&
+                // Una suscripción de tarjeta nueva no se cobra en un resumen que ya pasó
+                !(r.card_id && r.created_at && dueDate(m, r.day) < r.created_at.slice(0, 10)),
+            )
             .map((r) => ({
               id: uid(),
               kind: r.kind,
@@ -233,14 +318,15 @@ export function DataProvider({
               occurred_on: dueDate(m, r.day),
               recurring_id: r.id,
               period: m,
+              ...(r.card_id ? { card_id: r.card_id } : {}),
             }));
           if (due.length) {
             const ins = await db
               .from("transactions")
               .upsert(due, { onConflict: "recurring_id,period", ignoreDuplicates: true })
-              .select(txColumns);
+              .select(missing ? legacyTxColumns : txColumns);
             if (!ins.error) {
-              txData = [...(ins.data as Transaction[]), ...txData].sort((a, b) =>
+              txData = [...((ins.data ?? []) as unknown as Transaction[]).map(normalizeTx), ...txData].sort((a, b) =>
                 b.occurred_on.localeCompare(a.occurred_on),
               );
             }
@@ -314,7 +400,9 @@ export function DataProvider({
 
   // --- movimientos --------------------------------------------------------
   const addTx = useCallback(
-    async (t: NewTx) => {
+    async (t: NewTx, shares: SplitShare[] = []) => {
+      const others = shares.filter((x) => x.name.trim() && x.amount > 0);
+      const othersTotal = others.reduce((a, x) => a + x.amount, 0);
       const row: Transaction = {
         id: uid(),
         kind: t.kind,
@@ -324,6 +412,7 @@ export function DataProvider({
         occurred_on: t.occurred_on,
         recurring_id: null,
         period: null,
+        ...(others.length ? { my_share: Math.max(0, Math.round((t.amount - othersTotal) * 100) / 100) } : {}),
       };
       const insertOptimistic = (pending: boolean) =>
         setAllTxs((p) => [{ ...row, pending }, ...p].sort((a, b) => b.occurred_on.localeCompare(a.occurred_on)));
@@ -331,7 +420,18 @@ export function DataProvider({
       const where = row.occurred_on.startsWith(monthRef.current) ? "" : ` · ${monthLabel(row.occurred_on.slice(0, 7))}`;
       const { error } = await supabase().from("transactions").insert(row);
       if (!error) {
+        if (others.length) {
+          const rows = others.map((x) => ({ id: uid(), transaction_id: row.id, purchase_id: null, name: x.name.trim(), amount: x.amount, settled_on: null }));
+          const sp = await supabase().from("splits").insert(rows);
+          if (sp.error) toast("Se guardó el gasto pero no la división: " + sp.error.message);
+          else setSplits((p) => [...rows, ...p]);
+        }
         toast(`${row.kind === "expense" ? "Gasto" : "Ingreso"} guardado ✓${where}`);
+        return;
+      }
+      if (others.length) {
+        setAllTxs((p) => p.filter((x) => x.id !== row.id));
+        toast(isNetworkError(error) ? "Sin conexión: los gastos divididos necesitan internet" : "No se pudo guardar: " + error.message);
         return;
       }
       if (isNetworkError(error)) {
@@ -349,14 +449,19 @@ export function DataProvider({
   const updateTx = useCallback(
     async (id: string, patch: Partial<NewTx>) => {
       const before = allTxs.find((t) => t.id === id);
-      setAllTxs((p) => p.map((t) => (t.id === id ? { ...t, ...patch } : t)));
-      const { error } = await supabase().from("transactions").update(patch).eq("id", id);
+      const full: Partial<Transaction> = { ...patch };
+      if (before?.my_share != null && patch.amount !== undefined) {
+        const othersTotal = splits.filter((x) => x.transaction_id === id).reduce((a, x) => a + x.amount, 0);
+        full.my_share = Math.max(0, Math.round((patch.amount - othersTotal) * 100) / 100);
+      }
+      setAllTxs((p) => p.map((t) => (t.id === id ? { ...t, ...full } : t)));
+      const { error } = await supabase().from("transactions").update(full).eq("id", id);
       if (error) {
         if (before) setAllTxs((p) => p.map((t) => (t.id === id ? before : t)));
         toast(isNetworkError(error) ? "Sin conexión: no se pudo editar" : error.message);
       }
     },
-    [allTxs, toast],
+    [allTxs, splits, toast],
   );
 
   const deleteTx = useCallback(
@@ -385,8 +490,9 @@ export function DataProvider({
         name: r.name.trim(),
         amount: r.amount,
         category_id: r.category_id ?? null,
-        day: r.day ?? 1,
+        day: r.card_id ? (cards.find((c) => c.id === r.card_id)?.due_day ?? r.day ?? 1) : (r.day ?? 1),
         active: r.active ?? true,
+        ...(r.card_id !== undefined ? { card_id: r.card_id } : {}),
       };
       const { error } = r.id
         ? await db.from("recurring").update(body).eq("id", r.id)
@@ -394,7 +500,7 @@ export function DataProvider({
       if (error) return toast(error.message);
       await load(month);
     },
-    [load, month, toast],
+    [cards, load, month, toast],
   );
 
   const deleteRecurring = useCallback(
@@ -405,6 +511,142 @@ export function DataProvider({
     },
     [load, month, toast],
   );
+
+  // --- tarjetas, compras y divisiones --------------------------------------
+  const saveCard: Store["saveCard"] = useCallback(
+    async (c) => {
+      const db = supabase();
+      const body = { name: c.name.trim(), color: c.color || "#7c5cff", due_day: c.due_day };
+      if (c.id) {
+        const before = cards.find((x) => x.id === c.id);
+        const { error } = await db.from("cards").update(body).eq("id", c.id);
+        if (error) return toast(error.message);
+        // Si cambió el día de pago: mover suscripciones y cuotas futuras al nuevo día
+        if (before && before.due_day !== c.due_day) {
+          await db.from("recurring").update({ day: c.due_day }).eq("card_id", c.id);
+          const { data } = await db
+            .from("transactions")
+            .select("id,occurred_on")
+            .eq("card_id", c.id)
+            .gte("occurred_on", monthStart(currentMonth()));
+          await Promise.all(
+            (data ?? []).map((t) =>
+              db.from("transactions").update({ occurred_on: dueDate(t.occurred_on.slice(0, 7), c.due_day) }).eq("id", t.id),
+            ),
+          );
+        }
+      } else {
+        const { error } = await db.from("cards").insert(body);
+        if (error) return toast(error.message);
+      }
+      toast("Tarjeta guardada ✓");
+      await load(month);
+    },
+    [cards, load, month, toast],
+  );
+
+  const deleteCard = useCallback(
+    async (id: string) => {
+      const { error } = await supabase().from("cards").delete().eq("id", id);
+      if (error) return toast(error.message);
+      toast("Tarjeta borrada");
+      await load(month);
+    },
+    [load, month, toast],
+  );
+
+  const savePurchase: Store["savePurchase"] = useCallback(
+    async (input) => {
+      const db = supabase();
+      const card = cards.find((c) => c.id === input.card_id);
+      if (!card) {
+        toast("Elegí una tarjeta");
+        return false;
+      }
+      const others = input.splits.filter((x) => x.name.trim() && x.amount > 0);
+      const othersTotal = others.reduce((a, x) => a + x.amount, 0);
+      const ratio = others.length ? Math.max(0, input.total_amount - othersTotal) / input.total_amount : null;
+      const purchase: Purchase = {
+        id: input.id ?? uid(),
+        card_id: card.id,
+        description: input.description.trim(),
+        category_id: input.category_id,
+        total_amount: input.total_amount,
+        installments: input.installments,
+        first_period: input.first_period,
+        from_installment: Math.min(Math.max(1, input.from_installment), input.installments),
+        purchased_on: input.purchased_on,
+      };
+      const res = input.id
+        ? await db.from("purchases").update(purchase).eq("id", purchase.id)
+        : await db.from("purchases").insert(purchase);
+      if (res.error) {
+        toast(isNetworkError(res.error) ? "Sin conexión: las compras con tarjeta necesitan internet" : res.error.message);
+        return false;
+      }
+      // Cuotas: se regeneran completas (simple y sin inconsistencias)
+      if (input.id) await db.from("transactions").delete().eq("purchase_id", purchase.id);
+      const rows = buildInstallments(purchase, card, ratio);
+      const ins = await db.from("transactions").insert(rows);
+      if (ins.error) {
+        toast("No se pudieron generar las cuotas: " + ins.error.message);
+        return false;
+      }
+      // División: se reemplaza, conservando lo ya cobrado por nombre
+      const prevSplits = splits.filter((x) => x.purchase_id === purchase.id);
+      if (input.id) await db.from("splits").delete().eq("purchase_id", purchase.id);
+      if (others.length) {
+        const splitRows = others.map((x) => ({
+          id: uid(),
+          transaction_id: null,
+          purchase_id: purchase.id,
+          name: x.name.trim(),
+          amount: x.amount,
+          settled_on:
+            x.settled_on ?? prevSplits.find((p) => p.name.toLowerCase() === x.name.trim().toLowerCase())?.settled_on ?? null,
+        }));
+        const sp = await db.from("splits").insert(splitRows);
+        if (sp.error) toast("La compra se guardó, pero no la división: " + sp.error.message);
+      }
+      const n = rows.length;
+      toast(
+        input.id
+          ? "Compra actualizada ✓"
+          : purchase.installments > 1
+            ? `Compra en ${purchase.installments} cuotas guardada ✓ (${n} por pagar)`
+            : `Compra guardada ✓ · se paga el ${Number(rows[0]?.occurred_on.slice(8, 10))}/${Number(rows[0]?.occurred_on.slice(5, 7))}`,
+      );
+      await load(monthRef.current);
+      return true;
+    },
+    [cards, splits, load, toast],
+  );
+
+  const deletePurchase = useCallback(
+    async (id: string) => {
+      // Las cuotas y la división se borran en cascada
+      const { error } = await supabase().from("purchases").delete().eq("id", id);
+      if (error) return toast(error.message);
+      toast("Compra borrada");
+      await load(monthRef.current);
+    },
+    [load, toast],
+  );
+
+  const settleSplit = useCallback(
+    async (id: string, settled: boolean) => {
+      const settled_on = settled ? todayISO() : null;
+      setSplits((p) => p.map((x) => (x.id === id ? { ...x, settled_on } : x)));
+      const { error } = await supabase().from("splits").update({ settled_on }).eq("id", id);
+      if (error) {
+        setSplits((p) => p.map((x) => (x.id === id ? { ...x, settled_on: settled ? null : todayISO() } : x)));
+        toast(error.message);
+      } else if (settled) toast("Marcado como cobrado ✓");
+    },
+    [toast],
+  );
+
+  const reload = useCallback(() => load(monthRef.current), [load]);
 
   const saveCategory: Store["saveCategory"] = useCallback(
     async (c) => {
@@ -459,11 +701,20 @@ export function DataProvider({
     txs,
     prevTxs,
     pendingCount: queue.length,
+    cards,
+    purchases,
+    splits,
+    needsMigration,
     addTx,
     updateTx,
     deleteTx,
     saveRecurring,
     deleteRecurring,
+    saveCard,
+    deleteCard,
+    savePurchase,
+    deletePurchase,
+    settleSplit,
     saveCategory,
     deleteCategory,
     signOut,
@@ -472,6 +723,10 @@ export function DataProvider({
     sheet,
     openSheet,
     closeSheet,
+    purchaseSheet,
+    openPurchase,
+    closePurchase,
+    reload,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

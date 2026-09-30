@@ -12,7 +12,8 @@ import { TxRow } from "@/components/TxRow";
 import { ArrowUpRight } from "@/components/Icons";
 
 export default function Home() {
-  const { month, txs, prevTxs, categories, recurring, loading, openSheet } = useStore();
+  const { month, txs, prevTxs, categories, recurring, loading, openSheet, splits } = useStore();
+  const owed = splits.filter((x) => !x.settled_on).reduce((a, x) => a + x.amount, 0);
   const s = useMemo(
     () => monthStats(month, txs, prevTxs, categories, recurring),
     [month, txs, prevTxs, categories, recurring],
@@ -87,9 +88,18 @@ export default function Home() {
               label="Fijos"
               value={`${s.spent > 0 ? Math.round((s.fixedSpent / s.spent) * 100) : 0}%`}
               delay={200}
-              hint={`${compact(s.fixedSpent)} fijos · ${compact(s.variableSpent)} variables`}
+              hint={`${compact(s.fixedSpent)} fijos · ${compact(s.variableSpent)} variables${s.cardSpent > 0 ? ` · ${compact(s.cardSpent)} con tarjeta` : ""}`}
             />
           </section>
+
+          {owed > 0 && (
+            <Link href="/dividir" className="glass press rise flex items-center justify-between rounded-3xl px-4 py-3.5" style={{ animationDelay: "210ms" }}>
+              <span className="text-sm">
+                <span className="text-muted">Te deben</span> <b className="num">{money(owed)}</b>
+              </span>
+              <span className="text-xs text-muted">Ver quién →</span>
+            </Link>
+          )}
 
           {/* Fijos que faltan */}
           {s.upcoming.length > 0 && (

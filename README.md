@@ -4,6 +4,8 @@ PWA para anotar gastos e ingresos en segundos. Next.js 16 · React 19 · Tailwin
 
 - Carga rápida: botón **+**, teclado numérico propio, categorías más usadas primero, "seguir cargando".
 - Fijos mensuales (sueldo, beca, alquiler…) que se cargan solos el día elegido.
+- Tarjetas con día de pago fijo: compras en 1 pago o en cuotas (incluso planes ya empezados) y suscripciones, cada una con su categoría, sumadas al resumen del mes.
+- Gastos divididos: en las métricas cuenta solo tu parte, y una pantalla de "Te deben" para marcar lo cobrado.
 - Resumen del mes: gastado, ingresos, balance, proyección a fin de mes, fijos vs variables, dona por categoría, comparación con el mes anterior.
 - Funciona offline: lo que anotás sin conexión se sube solo al volver internet.
 - Exporta a CSV. Instalable en el celular.
@@ -12,7 +14,7 @@ PWA para anotar gastos e ingresos en segundos. Next.js 16 · React 19 · Tailwin
 
 ### 1. Supabase
 1. Crear proyecto en supabase.com.
-2. **SQL Editor** → pegar `supabase/schema.sql` → Run.
+2. **SQL Editor** → pegar `supabase/schema.sql` → Run. (Si ya lo habías corrido antes, corré también `supabase/migrations/002_tarjetas_y_dividir.sql`.)
 3. **Authentication → Providers → Email**: desactivar *Confirm email* (así podés entrar directo tras registrarte).
 4. **Project Settings → API**: copiar *Project URL* y la key *anon/publishable*.
 

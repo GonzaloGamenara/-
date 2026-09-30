@@ -4,22 +4,26 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
-import { HomeIcon, ListIcon, PlusIcon, RepeatIcon, UserIcon, CloudOffIcon } from "./Icons";
+import { HomeIcon, ListIcon, PlusIcon, CardIcon, UserIcon, CloudOffIcon } from "./Icons";
 import { QuickAdd } from "./QuickAdd";
+import { PurchaseSheet } from "./PurchaseSheet";
 import { useIosViewportFix } from "./useIosViewportFix";
 import { PrelaunchBanner, PrelaunchCard, usePrelaunch } from "./LaunchGate";
 
 const NAV = [
-  { href: "/", label: "Inicio", Icon: HomeIcon },
-  { href: "/movimientos", label: "Movimientos", Icon: ListIcon },
+  { href: "/", label: "Inicio", Icon: HomeIcon, also: [] as string[] },
+  { href: "/movimientos", label: "Movimientos", Icon: ListIcon, also: [] as string[] },
   null, // FAB
-  { href: "/fijos", label: "Fijos", Icon: RepeatIcon },
-  { href: "/ajustes", label: "Perfil", Icon: UserIcon },
+  { href: "/fijos", label: "Cuentas", Icon: CardIcon, also: ["/tarjetas"] },
+  { href: "/ajustes", label: "Perfil", Icon: UserIcon, also: ["/dividir"] },
 ] as const;
+
+const isActive = (path: string, item: { href: string; also: readonly string[] }) =>
+  path === item.href || item.also.some((a) => path === a || path.startsWith(a + "/"));
 
 export function Shell({ children }: { children: ReactNode }) {
   const path = usePathname();
-  const { openSheet, toastMsg, pendingCount, sheet } = useStore();
+  const { openSheet, toastMsg, pendingCount, sheet, purchaseSheet } = useStore();
   const prelaunch = usePrelaunch();
   useIosViewportFix();
   // En modo preparación solo están habilitados Fijos y Perfil
@@ -67,17 +71,17 @@ export function Shell({ children }: { children: ReactNode }) {
               <li key={item.href} className="flex flex-1">
                 <Link
                   href={item.href}
-                  aria-current={path === item.href ? "page" : undefined}
+                  aria-current={isActive(path, item) ? "page" : undefined}
                   className={`press flex flex-1 flex-col items-center justify-center gap-1 text-[10.5px] font-medium tracking-tight transition-colors ${
-                    path === item.href ? "text-fg" : "text-muted"
+                    isActive(path, item) ? "text-fg" : "text-muted"
                   }`}
                 >
                   <span
                     className={`grid h-7 w-12 place-items-center rounded-full transition-colors ${
-                      path === item.href ? "bg-inset" : ""
+                      isActive(path, item) ? "bg-inset" : ""
                     }`}
                   >
-                    <item.Icon width={21} height={21} strokeWidth={path === item.href ? 2.3 : 1.8} />
+                    <item.Icon width={21} height={21} strokeWidth={isActive(path, item) ? 2.3 : 1.8} />
                   </span>
                   {item.label}
                 </Link>
@@ -88,6 +92,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </nav>
 
       {sheet.open && !prelaunch && <QuickAdd />}
+      {purchaseSheet.open && <PurchaseSheet />}
 
       {toastMsg && (
         <div role="status" aria-live="polite" className="pop pointer-events-none fixed inset-x-0 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-[60] flex justify-center px-6">

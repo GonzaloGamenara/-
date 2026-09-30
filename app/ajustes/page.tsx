@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabase";
 import type { Category, Kind } from "@/lib/types";
 import { Sheet } from "@/components/Sheet";
 import { PageHeader } from "@/components/PageHeader";
+import { MigrationNotice } from "@/components/MigrationNotice";
+import { money } from "@/lib/format";
 import Link from "next/link";
 import { CardIcon, ChevronRight, PlusIcon, SplitIcon, TrashIcon } from "@/components/Icons";
 
@@ -14,25 +16,39 @@ const EMOJIS = ["🛒", "🍔", "☕", "🍕", "🚌", "🚗", "⛽", "🏠", "�
 const PALETTE = ["#34d399", "#4ade80", "#a3e635", "#facc15", "#fb923c", "#f87171", "#fb7185", "#f472b6", "#c084fc", "#a78bfa", "#60a5fa", "#22d3ee", "#2dd4bf", "#94a3b8"];
 
 export default function Ajustes() {
-  const { email, categories, signOut, toast, saveCategory } = useStore();
+  const { email, categories, signOut, toast, saveCategory, cards, splits } = useStore();
+  const owed = splits.filter((x) => !x.settled_on).reduce((a, x) => a + x.amount, 0);
   const [editing, setEditing] = useState<Partial<Category> | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function exportCsv() {
     setBusy(true);
-    const { data, error } = await supabase()
-      .from("transactions")
-      .select("occurred_on,kind,amount,note,category_id")
-      .order("occurred_on", { ascending: false });
+    const q = (cols: string) => supabase().from("transactions").select(cols).order("occurred_on", { ascending: false });
+    let res = await q("occurred_on,kind,amount,note,category_id,card_id,installment,my_share");
+    if (res.error) res = await q("occurred_on,kind,amount,note,category_id");
+    const { error } = res;
+    const data = res.data as unknown as {
+      occurred_on: string; kind: string; amount: number; note: string | null; category_id: string | null;
+      card_id?: string | null; installment?: number | null; my_share?: number | null;
+    }[] | null;
     setBusy(false);
     if (error || !data) return toast("No se pudo exportar");
     const name = (id: string | null) => categories.find((c) => c.id === id)?.name ?? "";
     const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
     // Excel en español espera ";" como separador y "," como decimal
     const rows = [
-      "fecha;tipo;monto;categoria;nota",
+      "fecha;tipo;monto;tu_parte;categoria;nota;tarjeta;cuota",
       ...data.map((t) =>
-        [t.occurred_on, t.kind === "expense" ? "gasto" : "ingreso", String(t.amount).replace(".", ","), esc(name(t.category_id)), esc(t.note ?? "")].join(";"),
+        [
+          t.occurred_on,
+          t.kind === "expense" ? "gasto" : "ingreso",
+          String(t.amount).replace(".", ","),
+          String(t.my_share ?? t.amount).replace(".", ","),
+          esc(name(t.category_id)),
+          esc(t.note ?? ""),
+          esc(cards.find((c) => c.id === t.card_id)?.name ?? ""),
+          t.installment ?? "",
+        ].join(";"),
       ),
     ];
     const url = URL.createObjectURL(new Blob(["﻿" + rows.join("\n")], { type: "text/csv;charset=utf-8" }));
@@ -59,28 +75,23 @@ export default function Ajustes() {
     <div className="grid gap-5">
       <PageHeader title="Perfil" subtitle={email} />
 
-      <section className="rise grid gap-2">
-        <h2 className="px-1 text-sm font-semibold">Próximamente</h2>
-        <div className="glass grid divide-y divide-line overflow-hidden rounded-3xl">
-          {[
-            { href: "/tarjetas", title: "Tarjetas y cuotas", text: "Desglose del resumen por compra y cuota", Icon: CardIcon },
-            { href: "/dividir", title: "Dividir gastos", text: "Tu parte en las métricas y quién te debe", Icon: SplitIcon },
-          ].map(({ href, title, text, Icon }) => (
-            <Link key={href} href={href} className="press flex items-center gap-3 px-4 py-3.5">
-              <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset">
-                <Icon width={20} height={20} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2 font-medium">
-                  {title}
-                  <span className="rounded-full bg-accent2/15 px-2 py-0.5 text-[10px] font-semibold text-accent2">En desarrollo</span>
-                </span>
-                <span className="block truncate text-xs text-muted">{text}</span>
-              </span>
-              <ChevronRight width={18} height={18} className="shrink-0 text-muted" />
-            </Link>
-          ))}
-        </div>
+      <MigrationNotice />
+      <section className="glass rise grid divide-y divide-line overflow-hidden rounded-3xl">
+        {[
+          { href: "/tarjetas", title: "Tarjetas", text: cards.length ? `${cards.length} ${cards.length === 1 ? "tarjeta" : "tarjetas"}` : "Resumen por compra y cuota", Icon: CardIcon },
+          { href: "/dividir", title: "Gastos divididos", text: owed > 0 ? `Te deben ${money(owed)}` : "Quién te debe y cuánto", Icon: SplitIcon },
+        ].map(({ href, title, text, Icon }) => (
+          <Link key={href} href={href} className="press flex items-center gap-3 px-4 py-3.5">
+            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset">
+              <Icon width={20} height={20} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium">{title}</span>
+              <span className="block truncate text-xs text-muted">{text}</span>
+            </span>
+            <ChevronRight width={18} height={18} className="shrink-0 text-muted" />
+          </Link>
+        ))}
       </section>
 
       {(["expense", "income"] as const).map((kind) => (

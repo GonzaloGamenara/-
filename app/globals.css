@@ -72,6 +72,7 @@ html {
 }
 body {
   min-height: 100dvh;
+  overflow-x: clip; /* nunca desplazamiento lateral en el celu */
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-sans);

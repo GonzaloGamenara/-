@@ -4,6 +4,7 @@ import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { dayLabel, money } from "@/lib/format";
+import { mine } from "@/lib/types";
 import { MonthSwitcher } from "@/components/MonthSwitcher";
 import { PageHeader } from "@/components/PageHeader";
 import { TxRow } from "@/components/TxRow";
@@ -17,7 +18,7 @@ export default function Page() {
   );
 }
 
-const signed = (t: { kind: string; amount: number }) => (t.kind === "expense" ? -t.amount : t.amount);
+const signed = (t: { kind: string; amount: number; my_share?: number | null }) => (t.kind === "expense" ? -mine(t) : t.amount);
 
 function Movimientos() {
   const { txs, categories, loading, openSheet } = useStore();
@@ -54,7 +55,7 @@ function Movimientos() {
     return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0]));
   }, [filtered]);
 
-  const spent = filtered.filter((t) => t.kind === "expense").reduce((a, t) => a + t.amount, 0);
+  const spent = filtered.filter((t) => t.kind === "expense").reduce((a, t) => a + mine(t), 0);
   const earned = filtered.filter((t) => t.kind === "income").reduce((a, t) => a + t.amount, 0);
   const hasFilters = kind !== "all" || !!catFilter || !!q;
 

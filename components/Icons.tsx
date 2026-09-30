@@ -57,3 +57,6 @@ export const CardIcon = (p: SVGProps<SVGSVGElement>) => (
 export const SplitIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><circle cx="8" cy="8" r="3" /><circle cx="16" cy="8" r="3" /><path d="M3 20a5 5 0 0 1 10 0M11 20a5 5 0 0 1 10 0" /></svg>
 );
+export const MinusIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base({ strokeWidth: 2.4, ...p })}><path d="M5 12h14" /></svg>
+);

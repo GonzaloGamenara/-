@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useStore } from "@/lib/store";
+import { useStore, type SplitShare } from "@/lib/store";
+import { nextPaymentPeriod } from "@/lib/cards";
+import { monthLabelCompact } from "@/lib/format";
+import { SplitEditor, splitIsValid } from "./SplitEditor";
 import { toISO, todayISO } from "@/lib/format";
 import type { Kind } from "@/lib/types";
 import { Sheet } from "./Sheet";
-import { BackspaceIcon, TrashIcon } from "./Icons";
+import { BackspaceIcon, CardIcon, SplitIcon, TrashIcon } from "./Icons";
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ",", "0", "⌫"] as const;
 
@@ -27,7 +30,7 @@ function press(raw: string, key: string) {
 }
 
 export function QuickAdd() {
-  const { sheet, closeSheet, categories, txs, prevTxs, addTx, updateTx, deleteTx } = useStore();
+  const { sheet, closeSheet, categories, txs, prevTxs, addTx, updateTx, deleteTx, cards, savePurchase, openPurchase, splits } = useStore();
   const editing = sheet.editing ?? null;
 
   const [kind, setKind] = useState<Kind>(editing?.kind ?? sheet.kind ?? "expense");
@@ -37,6 +40,11 @@ export function QuickAdd() {
   const [date, setDate] = useState(editing?.occurred_on ?? todayISO());
   const [keepOpen, setKeepOpen] = useState(false);
   const [flash, setFlash] = useState(false);
+  // Pago con tarjeta (compra en 1 pago o cuotas) y división
+  const [payCard, setPayCard] = useState<string | null>(null);
+  const [cuotas, setCuotas] = useState(1);
+  const [splitOn, setSplitOn] = useState(false);
+  const [shares, setShares] = useState<SplitShare[]>([]);
   const noteRef = useRef<HTMLInputElement>(null);
   const dateRef = useRef<HTMLInputElement>(null);
 
@@ -72,26 +80,51 @@ export function QuickAdd() {
   }, []);
 
   const amount = Number(raw.replace(",", ".")) || 0;
-  const valid = amount > 0;
+  const card = cards.find((c) => c.id === payCard);
+  const activeShares = splitOn && kind === "expense" ? shares : [];
+  const valid = amount > 0 && splitIsValid(amount, activeShares);
+  const editingShares = editing ? splits.filter((x) => x.transaction_id === editing.id) : [];
   const yesterday = toISO(new Date(Date.now() - 864e5));
 
   async function save() {
     if (!valid) return;
     const payload = { kind, amount, category_id: catId, note: note.trim() || null, occurred_on: date };
+    if (!editing && card && kind === "expense") {
+      const catName = categories.find((c) => c.id === catId)?.name;
+      const ok = await savePurchase({
+        card_id: card.id,
+        description: note.trim() || catName || "Compra",
+        category_id: catId,
+        total_amount: amount,
+        installments: cuotas,
+        first_period: nextPaymentPeriod(card),
+        from_installment: 1,
+        purchased_on: date,
+        splits: activeShares,
+      });
+      if (!ok) return;
+      if (keepOpen) {
+        setRaw("");
+        setNote("");
+        setShares([]);
+      } else closeSheet();
+      return;
+    }
     if (editing) {
       await updateTx(editing.id, payload);
       closeSheet();
       return;
     }
     if (keepOpen) {
-      addTx(payload);
+      addTx(payload, activeShares);
       setRaw("");
       setNote("");
+      setShares([]);
       setFlash(true);
       setTimeout(() => setFlash(false), 900);
       navigator.vibrate?.(12);
     } else {
-      addTx(payload);
+      addTx(payload, activeShares);
       closeSheet();
     }
   }
@@ -220,6 +253,77 @@ export function QuickAdd() {
         )}
       </div>
 
+      {/* Tarjeta y división (solo gastos nuevos) */}
+      {!editing && isExp && (
+        <div className="mb-3 grid gap-2">
+          <div className="hide-scroll -mx-5 flex gap-1.5 overflow-x-auto px-5 text-sm">
+            {cards.length > 0 && (
+              <>
+                <button
+                  onClick={() => setPayCard(null)}
+                  className={`press shrink-0 rounded-full px-3.5 py-1.5 font-medium ${!payCard ? "bg-fg text-bg" : "bg-inset text-muted"}`}
+                >
+                  Efectivo / débito
+                </button>
+                {cards.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setPayCard(c.id)}
+                    className={`press flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 font-medium ${payCard === c.id ? "bg-fg text-bg" : "bg-inset text-muted"}`}
+                  >
+                    <CardIcon width={15} height={15} style={{ color: c.color }} />
+                    {c.name}
+                  </button>
+                ))}
+              </>
+            )}
+            <button
+              onClick={() => setSplitOn((v) => !v)}
+              aria-pressed={splitOn}
+              className={`press flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 font-medium ${splitOn ? "bg-accent2 text-black" : "bg-inset text-muted"}`}
+            >
+              <SplitIcon width={15} height={15} />
+              Dividir
+            </button>
+          </div>
+          {card && (
+            <div className="hide-scroll -mx-5 flex items-center gap-1.5 overflow-x-auto px-5 text-sm">
+              {[1, 3, 6, 12].map((q) => (
+                <button
+                  key={q}
+                  onClick={() => setCuotas(q)}
+                  className={`press num shrink-0 rounded-full px-3 py-1 font-semibold ${cuotas === q ? "bg-fg text-bg" : "bg-inset text-muted"}`}
+                >
+                  {q === 1 ? "1 pago" : `${q} cuotas`}
+                </button>
+              ))}
+              <button
+                onClick={() => {
+                  closeSheet();
+                  openPurchase({ cardId: card.id });
+                }}
+                className="ml-auto shrink-0 text-xs font-medium text-accent2"
+              >
+                Más opciones
+              </button>
+            </div>
+          )}
+          {card && (
+            <p className="text-xs text-muted">
+              Se suma al resumen de {monthLabelCompact(nextPaymentPeriod(card))} (día {card.due_day})
+              {cuotas > 1 && amount > 0 && ` · ${cuotas} cuotas de $${Math.round(amount / cuotas).toLocaleString("es-AR")}`}
+            </p>
+          )}
+          {splitOn && <SplitEditor total={amount} value={shares} onChange={setShares} />}
+        </div>
+      )}
+      {editing && editingShares.length > 0 && (
+        <p className="mb-3 rounded-2xl bg-inset px-3.5 py-2.5 text-sm text-muted">
+          Dividido con {editingShares.map((x) => x.name).join(", ")} · tu parte{" "}
+          <b className="num text-fg">${(editing.my_share ?? editing.amount).toLocaleString("es-AR")}</b>
+        </p>
+      )}
+
       {/* Teclado */}
       <div className="mb-3 grid grid-cols-3 gap-2">
         {KEYS.map((k) => (
@@ -239,7 +343,7 @@ export function QuickAdd() {
         disabled={!valid}
         className={`press w-full rounded-2xl py-4 text-base font-semibold transition-opacity disabled:opacity-35 ${isExp ? "bg-exp text-on-exp" : "bg-inc text-on-inc"}`}
       >
-        {editing ? "Guardar cambios" : isExp ? "Guardar gasto" : "Guardar ingreso"}
+        {editing ? "Guardar cambios" : !isExp ? "Guardar ingreso" : card ? (cuotas > 1 ? `Guardar en ${cuotas} cuotas` : "Guardar en tarjeta") : "Guardar gasto"}
       </button>
     </Sheet>
   );
