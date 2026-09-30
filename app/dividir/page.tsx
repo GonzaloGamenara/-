@@ -1,175 +1,161 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { supabase } from "@/lib/supabase";
+import { useShared } from "@/lib/sharedStore";
+import { groupBalances } from "@/lib/shared";
 import { dayLabel, money } from "@/lib/format";
-import type { Split } from "@/lib/types";
-import { MigrationNotice } from "@/components/MigrationNotice";
-import { AliasField } from "@/components/AliasField";
+import { supabase } from "@/lib/supabase";
 import { debtMessage, shareText } from "@/lib/share";
-import { SplitIcon } from "@/components/Icons";
+import type { Split } from "@/lib/types";
 import { PageHeader } from "@/components/PageHeader";
-import { ChevronLeft } from "@/components/Icons";
+import { AliasField } from "@/components/AliasField";
+import { NewGroupSheet } from "@/components/NewGroupSheet";
+import { ChevronRight, PlusIcon } from "@/components/Icons";
 
-interface Origin {
-  label: string;
-  date: string;
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <Dividir />
+    </Suspense>
+  );
 }
 
-export default function Dividir() {
-  const { splits, purchases, settleSplit, needsMigration, openSheet, alias } = useStore();
-  const [origins, setOrigins] = useState<Record<string, Origin>>({});
-  const [showHistory, setShowHistory] = useState(false);
+function Dividir() {
+  const params = useSearchParams();
+  const { groups, members, expenses, payments, missing, ready } = useShared();
+  const [creating, setCreating] = useState(params.get("nueva") === "1");
 
-  // De qué gasto viene cada parte (los movimientos pueden no estar cargados en memoria)
-  useEffect(() => {
-    const ids = [...new Set(splits.map((s) => s.transaction_id).filter((x): x is string => !!x))].filter((id) => !origins[id]);
-    if (!ids.length) return;
-    supabase()
-      .from("transactions")
-      .select("id,note,occurred_on")
-      .in("id", ids)
-      .then(({ data }) => {
-        if (!data) return;
-        setOrigins((o) => {
-          const next = { ...o };
-          for (const t of data) next[t.id] = { label: t.note || "Gasto", date: t.occurred_on };
-          return next;
-        });
-      });
-  }, [splits, origins]);
-
-  const originOf = (s: Split): Origin => {
-    if (s.purchase_id) {
-      const p = purchases.find((x) => x.id === s.purchase_id);
-      return { label: p ? `${p.description}${p.installments > 1 ? ` · ${p.installments} cuotas` : ""}` : "Compra con tarjeta", date: p?.purchased_on ?? "" };
-    }
-    return origins[s.transaction_id ?? ""] ?? { label: "…", date: "" };
-  };
-
-  const pending = splits.filter((s) => !s.settled_on);
-  const settled = splits.filter((s) => s.settled_on).slice(0, 30);
-
-  const people = useMemo(() => {
-    const map = new Map<string, { name: string; total: number; items: Split[] }>();
-    for (const s of pending) {
-      const key = s.name.trim().toLowerCase();
-      const cur = map.get(key) ?? { name: s.name.trim(), total: 0, items: [] };
-      cur.total += s.amount;
-      cur.items.push(s);
-      map.set(key, cur);
-    }
-    return [...map.values()].sort((a, b) => b.total - a.total);
-  }, [pending]);
-
-  const totalOwed = people.reduce((a, p) => a + p.total, 0);
+  const rows = useMemo(
+    () =>
+      groups.map((g) => {
+        const ms = members.filter((m) => m.group_id === g.id);
+        const me = ms.find((m) => m.is_me);
+        const b = groupBalances(ms, expenses.filter((e) => e.group_id === g.id), payments.filter((p) => p.group_id === g.id));
+        return { g, people: ms.length, total: b.total, mine: me ? (b.net.get(me.id) ?? 0) : 0, pending: b.transfers.length };
+      }),
+    [groups, members, expenses, payments],
+  );
 
   return (
     <div className="grid gap-5">
-      <Link href="/ajustes" className="press rise -ml-1 flex w-fit items-center gap-1 pt-1 text-sm text-muted">
-        <span className="grid size-9 place-items-center rounded-full bg-surface">
-          <ChevronLeft width={18} height={18} />
-        </span>
-        Perfil
-      </Link>
-      <PageHeader title="Gastos divididos" subtitle="Lo que pagaste por otros. En tus métricas cuenta solo tu parte." />
-      <MigrationNotice />
+      <PageHeader title="Dividir" subtitle="Cada uno carga lo que pagó y la app te dice quién le debe a quién." />
 
-      {!needsMigration && (
-        <section className="glass rise rounded-[28px] p-5">
-          <p className="text-sm text-muted">Te deben</p>
-          <p className="num text-4xl font-semibold">{money(totalOwed)}</p>
-          <p className="mt-1 text-xs text-muted">
-            {people.length ? `${people.length} ${people.length === 1 ? "persona" : "personas"}` : "Nadie te debe nada 🎉"}
+      {missing ? (
+        <div className="glass rounded-3xl border-l-4 border-l-exp p-4 text-sm">
+          <b>Falta un paso en Supabase.</b>
+          <p className="mt-1 text-muted">
+            Corré <code className="text-fg">supabase/migrations/003_cuentas_compartidas.sql</code> en SQL Editor → Run y recargá la app.
           </p>
-          <button
-            onClick={() => openSheet({ split: true })}
-            className="press mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-accent2 py-3.5 font-semibold text-black"
-          >
-            <SplitIcon width={18} height={18} /> Dividir una cuenta
-          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setCreating(true)}
+          className="press rise flex items-center justify-center gap-2 rounded-3xl bg-accent2 py-4 text-base font-semibold text-black"
+        >
+          <PlusIcon width={18} height={18} /> Nueva cuenta compartida
+        </button>
+      )}
+
+      {!ready ? (
+        <div className="skeleton h-24" />
+      ) : (
+        rows.length > 0 && (
+          <ul className="glass rise divide-y divide-line overflow-hidden rounded-3xl">
+            {rows.map(({ g, people, total, mine, pending }) => (
+              <li key={g.id}>
+                <Link href={`/dividir/${g.id}`} className="press flex items-center gap-3 px-4 py-3.5">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{g.name}</span>
+                    <span className="block text-xs capitalize text-muted">
+                      {dayLabel(g.occurred_on)} · {people} personas · {money(total)}
+                    </span>
+                  </span>
+                  <span className="text-right text-sm">
+                    {pending === 0 ? (
+                      <span className="text-muted">{total > 0 ? "Saldada ✓" : "Sin gastos"}</span>
+                    ) : mine > 0.5 ? (
+                      <span className="font-semibold text-inc">Te deben {money(mine)}</span>
+                    ) : mine < -0.5 ? (
+                      <span className="font-semibold text-exp">Debés {money(-mine)}</span>
+                    ) : (
+                      <span className="text-muted">Estás al día</span>
+                    )}
+                  </span>
+                  <ChevronRight width={16} height={16} className="shrink-0 text-muted" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )
+      )}
+
+      {ready && !missing && rows.length === 0 && (
+        <section className="glass rise grid gap-2 rounded-3xl p-5 text-sm">
+          <h2 className="font-semibold">¿Cómo funciona?</h2>
+          <ol className="grid list-decimal gap-1.5 pl-5 text-muted">
+            <li>Creás la cuenta (ej: “Asado del sábado”) y sumás a los que estuvieron.</li>
+            <li>Cargás lo que pagó cada uno: “Pedro · $15.000 · carne”, “Vos · $3.000 · pan”.</li>
+            <li>La app calcula cuánto le toca a cada uno y quién le tiene que pasar plata a quién.</li>
+            <li>Le pedís con tu alias por WhatsApp y marcás cuando te pagan.</li>
+          </ol>
         </section>
       )}
 
-      {!needsMigration && (
-        <section className="glass rise rounded-3xl p-4">
-          <AliasField />
-        </section>
-      )}
+      <section className="glass rise rounded-3xl p-4">
+        <AliasField />
+      </section>
 
-      {people.map((p) => (
-        <section key={p.name} className="glass rise overflow-hidden rounded-3xl">
-          <div className="flex items-center gap-3 px-4 pb-2 pt-4">
-            <span className="grid size-10 place-items-center rounded-full bg-inset font-semibold">{p.name[0]?.toUpperCase()}</span>
+      <LegacySplits />
+
+      {creating && <NewGroupSheet onClose={() => setCreating(false)} />}
+    </div>
+  );
+}
+
+/** Divisiones hechas con la versión anterior (compras con tarjeta divididas, etc.). */
+function LegacySplits() {
+  const { splits, purchases, settleSplit, alias } = useStore();
+  const [origins, setOrigins] = useState<Record<string, string>>({});
+  const pending = splits.filter((s) => !s.settled_on);
+
+  useEffect(() => {
+    const ids = [...new Set(pending.map((s) => s.transaction_id).filter((x): x is string => !!x))].filter((id) => !origins[id]);
+    if (!ids.length) return;
+    supabase()
+      .from("transactions")
+      .select("id,note")
+      .in("id", ids)
+      .then(({ data }) => data && setOrigins((o) => ({ ...o, ...Object.fromEntries(data.map((t) => [t.id, t.note || "Gasto"])) })));
+  }, [pending, origins]);
+
+  if (!pending.length) return null;
+  const label = (s: Split) =>
+    s.purchase_id ? (purchases.find((p) => p.id === s.purchase_id)?.description ?? "Compra con tarjeta") : (origins[s.transaction_id ?? ""] ?? "…");
+
+  return (
+    <section className="rise">
+      <h2 className="mb-1 px-1 text-sm font-semibold">Compras que dividiste</h2>
+      <ul className="glass divide-y divide-line overflow-hidden rounded-3xl">
+        {pending.map((s) => (
+          <li key={s.id} className="flex items-center gap-2 px-4 py-3 text-sm">
             <span className="min-w-0 flex-1">
-              <span className="block truncate font-semibold">{p.name}</span>
-              <span className="num text-sm text-muted">{money(p.total)}</span>
+              <span className="block truncate">
+                <b className="font-medium">{s.name}</b> te debe {money(s.amount)}
+              </span>
+              <span className="block truncate text-xs text-muted">{label(s)}</span>
             </span>
-            <button
-              onClick={() => shareText(debtMessage(p.name, p.items.map((s) => ({ label: originOf(s).label, amount: s.amount })), alias))}
-              className="press rounded-full bg-[#25D366] px-4 py-2 text-sm font-semibold text-black"
-            >
+            <button onClick={() => shareText(debtMessage(s.name, [{ label: label(s), amount: s.amount }], alias))} className="press rounded-full bg-[#25D366] px-3 py-1.5 text-xs font-semibold text-black">
               Pedir
             </button>
-          </div>
-          <ul className="divide-y divide-line">
-            {p.items.map((s) => {
-              const o = originOf(s);
-              return (
-                <li key={s.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate">{o.label}</span>
-                    {o.date && <span className="text-xs capitalize text-muted">{dayLabel(o.date)}</span>}
-                  </span>
-                  <span className="num text-muted">{money(s.amount)}</span>
-                  <button onClick={() => settleSplit(s.id, true)} className="press rounded-full border border-line px-3 py-1.5 text-xs font-semibold">
-                    ✓ Cobrado
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          {p.items.length > 1 && (
-            <button
-              onClick={() => p.items.forEach((s) => settleSplit(s.id, true))}
-              className="press w-full border-t border-line py-3 text-sm font-medium text-accent2"
-            >
-              Me pagó todo
+            <button onClick={() => settleSplit(s.id, true)} className="press rounded-full border border-line px-3 py-1.5 text-xs font-semibold">
+              ✓
             </button>
-          )}
-        </section>
-      ))}
-
-      {!needsMigration && !pending.length && (
-        <p className="rise px-6 text-center text-sm text-muted">
-          También podés dividir desde el botón <b className="text-fg">+</b> → <b className="text-fg">Dividir</b>, o al cargar una compra con tarjeta.
-        </p>
-      )}
-
-      {settled.length > 0 && (
-        <section className="rise">
-          <button onClick={() => setShowHistory((v) => !v)} className="px-1 text-sm font-semibold">
-            Ya cobrado {showHistory ? "▾" : "▸"}
-          </button>
-          {showHistory && (
-            <ul className="glass mt-2 divide-y divide-line overflow-hidden rounded-3xl">
-              {settled.map((s) => (
-                <li key={s.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                  <span className="min-w-0 flex-1 truncate">
-                    <b className="font-medium">{s.name}</b> · <span className="text-muted">{originOf(s).label}</span>
-                  </span>
-                  <span className="num text-muted">{money(s.amount)}</span>
-                  <button onClick={() => settleSplit(s.id, false)} className="text-xs font-medium text-muted underline">
-                    Deshacer
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
-    </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

@@ -7,7 +7,6 @@ import type { Category, Kind } from "@/lib/types";
 import { Sheet } from "@/components/Sheet";
 import { PageHeader } from "@/components/PageHeader";
 import { MigrationNotice } from "@/components/MigrationNotice";
-import { money } from "@/lib/format";
 import Link from "next/link";
 import { ChevronRight, PlusIcon, SplitIcon, TrashIcon } from "@/components/Icons";
 import { AliasField } from "@/components/AliasField";
@@ -17,8 +16,7 @@ const EMOJIS = ["🛒", "🍔", "☕", "🍕", "🚌", "🚗", "⛽", "🏠", "�
 const PALETTE = ["#34d399", "#4ade80", "#a3e635", "#facc15", "#fb923c", "#f87171", "#fb7185", "#f472b6", "#c084fc", "#a78bfa", "#60a5fa", "#22d3ee", "#2dd4bf", "#94a3b8"];
 
 export default function Ajustes() {
-  const { email, categories, signOut, toast, saveCategory, cards, splits } = useStore();
-  const owed = splits.filter((x) => !x.settled_on).reduce((a, x) => a + x.amount, 0);
+  const { email, categories, signOut, toast, saveCategory, cards } = useStore();
   const [editing, setEditing] = useState<Partial<Category> | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -87,8 +85,8 @@ export default function Ajustes() {
           <SplitIcon width={20} height={20} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-medium">Gastos divididos</span>
-          <span className="block truncate text-xs text-muted">{owed > 0 ? `Te deben ${money(owed)}` : "Dividir una cuenta y ver quién te debe"}</span>
+          <span className="block font-medium">Dividir cuentas</span>
+          <span className="block truncate text-xs text-muted">Quién pagó qué y quién le debe a quién</span>
         </span>
         <ChevronRight width={18} height={18} className="shrink-0 text-muted" />
       </Link>

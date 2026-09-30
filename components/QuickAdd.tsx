@@ -1,18 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useStore, type SplitShare } from "@/lib/store";
+import { useRouter } from "next/navigation";
+import { useStore } from "@/lib/store";
 import { nextPaymentPeriod } from "@/lib/cards";
 import { money, monthLabelCompact, toISO, todayISO } from "@/lib/format";
-import { debtMessage, shareText } from "@/lib/share";
 import { Sheet } from "./Sheet";
 import { CategoryChips } from "./CategoryChips";
-import { SplitEditor, splitIsValid } from "./SplitEditor";
-import { AliasField } from "./AliasField";
-import { BackspaceIcon, CardIcon, TrashIcon } from "./Icons";
+import { BackspaceIcon, CardIcon, SplitIcon, TrashIcon } from "./Icons";
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ",", "0", "⌫"] as const;
-type Mode = "expense" | "income" | "split";
+type Mode = "expense" | "income";
 
 /** "1500,5" → "1.500,5" */
 function display(raw: string) {
@@ -34,14 +32,14 @@ function press(raw: string, key: string) {
 const MODES: { id: Mode; label: string }[] = [
   { id: "expense", label: "Gasto" },
   { id: "income", label: "Ingreso" },
-  { id: "split", label: "Dividir" },
 ];
 
 export function QuickAdd() {
-  const { sheet, closeSheet, categories, addTx, updateTx, deleteTx, cards, savePurchase, openPurchase, splits, alias } = useStore();
+  const router = useRouter();
+  const { sheet, closeSheet, categories, addTx, updateTx, deleteTx, cards, savePurchase, openPurchase, splits } = useStore();
   const editing = sheet.editing ?? null;
 
-  const [mode, setMode] = useState<Mode>(editing ? editing.kind : sheet.split ? "split" : (sheet.kind ?? "expense"));
+  const [mode, setMode] = useState<Mode>(editing ? editing.kind : (sheet.kind ?? "expense"));
   const [raw, setRaw] = useState(editing ? String(editing.amount).replace(".", ",") : "");
   const [catId, setCatId] = useState<string | null>(editing?.category_id ?? null);
   const [note, setNote] = useState(editing?.note ?? "");
@@ -50,15 +48,11 @@ export function QuickAdd() {
   const [flash, setFlash] = useState(false);
   const [payCard, setPayCard] = useState<string | null>(null);
   const [cuotas, setCuotas] = useState(1);
-  const [shares, setShares] = useState<SplitShare[]>([]);
   const [busy, setBusy] = useState(false);
-  // Después de dividir: a quién pedirle
-  const [done, setDone] = useState<{ label: string; shares: SplitShare[] } | null>(null);
   const noteRef = useRef<HTMLInputElement>(null);
   const dateRef = useRef<HTMLInputElement>(null);
 
-  const kind = mode === "income" ? "income" : "expense";
-  const isSplit = mode === "split";
+  const kind = mode;
 
   // Si la categoría elegida no es del tipo actual, se descarta
   useEffect(() => {
@@ -86,15 +80,13 @@ export function QuickAdd() {
 
   const amount = Number(raw.replace(",", ".")) || 0;
   const card = cards.find((c) => c.id === payCard);
-  const activeShares = isSplit ? shares.filter((s) => s.name.trim() && s.amount > 0) : [];
-  const valid = amount > 0 && (!isSplit || activeShares.length > 0) && splitIsValid(amount, activeShares);
+  const valid = amount > 0;
   const yesterday = toISO(new Date(Date.now() - 864e5));
   const editingShares = editing ? splits.filter((x) => x.transaction_id === editing.id) : [];
 
   const resetForNext = () => {
     setRaw("");
     setNote("");
-    setShares([]);
     setFlash(true);
     setTimeout(() => setFlash(false), 900);
     navigator.vibrate?.(12);
@@ -102,7 +94,6 @@ export function QuickAdd() {
 
   async function save() {
     if (!valid || busy) return;
-    const label = note.trim() || categories.find((c) => c.id === catId)?.name || (isSplit ? "la cuenta" : "Compra");
     if (editing) {
       await updateTx(editing.id, { kind, amount, category_id: catId, note: note.trim() || null, occurred_on: date });
       closeSheet();
@@ -120,14 +111,13 @@ export function QuickAdd() {
         first_period: nextPaymentPeriod(card),
         from_installment: 1,
         purchased_on: date,
-        splits: activeShares,
+        splits: [],
       });
     } else {
-      ok = await addTx({ kind, amount, category_id: catId, note: note.trim() || null, occurred_on: date }, activeShares);
+      ok = await addTx({ kind, amount, category_id: catId, note: note.trim() || null, occurred_on: date });
     }
     setBusy(false);
     if (!ok) return;
-    if (isSplit) return setDone({ label, shares: activeShares });
     if (keepOpen) resetForNext();
     else closeSheet();
   }
@@ -135,47 +125,12 @@ export function QuickAdd() {
 
   const tone = mode === "income" ? "text-inc" : "text-exp";
 
-  // --- Pantalla final de "Dividir": pedirle a cada uno --------------------------
-  if (done) {
-    return (
-      <Sheet open onClose={closeSheet} title="¡Listo! Ahora pediles">
-        <div className="grid gap-4">
-          <p className="-mt-2 text-sm text-muted">
-            Se guardó {done.label}. En tus métricas cuenta solo tu parte. Mandale a cada uno lo suyo:
-          </p>
-          {!alias && <AliasField compact />}
-          <ul className="grid gap-2">
-            {done.shares.map((s) => (
-              <li key={s.name} className="flex items-center gap-3 rounded-2xl bg-inset px-3 py-2.5">
-                <span className="grid size-9 place-items-center rounded-full bg-bg font-semibold">{s.name[0]?.toUpperCase()}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{s.name}</span>
-                  <span className="num text-sm text-muted">{money(s.amount)}</span>
-                </span>
-                <button
-                  onClick={() => shareText(debtMessage(s.name, [{ label: done.label, amount: s.amount }], alias))}
-                  className="press rounded-full bg-[#25D366] px-4 py-2 text-sm font-semibold text-black"
-                >
-                  Pedir
-                </button>
-              </li>
-            ))}
-          </ul>
-          <button onClick={closeSheet} className="press rounded-2xl bg-fg py-3.5 font-semibold text-bg">
-            Listo
-          </button>
-          <p className="text-center text-xs text-muted">Después lo ves en Perfil → Gastos divididos, y marcás quién te pagó.</p>
-        </div>
-      </Sheet>
-    );
-  }
-
   return (
     <Sheet open onClose={closeSheet} tall>
       {/* Modo */}
       <div className="mb-4 flex items-center gap-2">
-        <div className={`grid flex-1 rounded-full bg-inset p-1 text-sm font-semibold ${editing ? "grid-cols-2" : "grid-cols-3"}`}>
-          {MODES.filter((m) => !editing || m.id !== "split").map((m) => (
+        <div className="grid flex-1 grid-cols-2 rounded-full bg-inset p-1 text-sm font-semibold">
+          {MODES.map((m) => (
             <button
               key={m.id}
               onClick={() => setMode(m.id)}
@@ -183,9 +138,7 @@ export function QuickAdd() {
                 mode === m.id
                   ? m.id === "expense"
                     ? "bg-exp text-on-exp shadow-sm"
-                    : m.id === "income"
-                      ? "bg-inc text-on-inc shadow-sm"
-                      : "bg-accent2 text-black shadow-sm"
+                    : "bg-inc text-on-inc shadow-sm"
                   : "text-muted"
               }`}
             >
@@ -210,12 +163,23 @@ export function QuickAdd() {
         )}
       </div>
 
+      {!editing && mode === "expense" && (
+        <button
+          onClick={() => {
+            closeSheet();
+            router.push("/dividir?nueva=1");
+          }}
+          className="press -mt-2 mb-2 flex w-full items-center justify-center gap-1.5 py-1 text-xs font-medium text-accent2"
+        >
+          <SplitIcon width={14} height={14} /> ¿Lo pagaron entre varios? Dividir una cuenta
+        </button>
+      )}
+
       {/* Monto */}
       <div className="mb-3 text-center">
-        {isSplit && <p className="text-xs font-medium uppercase tracking-wide text-muted">Total de la cuenta</p>}
         <div
           className={`num flex items-baseline justify-center gap-1 font-semibold transition-colors ${
-            flash ? "text-accent2" : amount > 0 ? (isSplit ? "text-fg" : tone) : "text-muted"
+            flash ? "text-accent2" : amount > 0 ? tone : "text-muted"
           }`}
           style={{ fontSize: raw.length > 11 ? 40 : raw.length > 8 ? 52 : 64, lineHeight: 1.1 }}
         >
@@ -226,7 +190,7 @@ export function QuickAdd() {
           ref={noteRef}
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder={isSplit ? "¿Qué fue? (asado, cena…)" : mode === "expense" ? "¿En qué? (opcional)" : "¿De qué? (opcional)"}
+          placeholder={mode === "expense" ? "¿En qué? (opcional)" : "¿De qué? (opcional)"}
           maxLength={80}
           enterKeyHint="done"
           onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), noteRef.current?.blur())}
@@ -234,12 +198,6 @@ export function QuickAdd() {
         />
       </div>
 
-      {/* Con quién (Dividir) */}
-      {isSplit && (
-        <div className="mb-3">
-          <SplitEditor total={amount} value={shares} onChange={setShares} />
-        </div>
-      )}
 
       {/* Categoría */}
       <div className="mb-3">
@@ -338,7 +296,7 @@ export function QuickAdd() {
             aria-label="Elegir fecha"
           />
         </button>
-        {!editing && !isSplit && (
+        {!editing && (
           <label className="ml-auto flex items-center gap-2 text-xs text-muted">
             Seguir cargando
             <input type="checkbox" checked={keepOpen} onChange={(e) => setKeepOpen(e.target.checked)} className="size-4" />
@@ -364,7 +322,7 @@ export function QuickAdd() {
         onClick={save}
         disabled={!valid || busy}
         className={`press w-full rounded-2xl py-4 text-base font-semibold transition-opacity disabled:opacity-35 ${
-          mode === "income" ? "bg-inc text-on-inc" : isSplit ? "bg-accent2 text-black" : "bg-exp text-on-exp"
+          mode === "income" ? "bg-inc text-on-inc" : "bg-exp text-on-exp"
         }`}
       >
         {busy
@@ -373,11 +331,7 @@ export function QuickAdd() {
             ? "Guardar cambios"
             : mode === "income"
               ? "Guardar ingreso"
-              : isSplit
-                ? activeShares.length
-                  ? `Dividir entre ${activeShares.length + 1}`
-                  : "Sumá con quién dividís"
-                : card
+              : card
                   ? cuotas > 1
                     ? `Guardar en ${cuotas} cuotas`
                     : "Guardar en tarjeta"

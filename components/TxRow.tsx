@@ -1,11 +1,16 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
+import { useShared } from "@/lib/sharedStore";
 import { dayLabel, money } from "@/lib/format";
 import { mine, type Transaction } from "@/lib/types";
 
 export function TxRow({ tx, showDate = false }: { tx: Transaction; showDate?: boolean }) {
+  const router = useRouter();
   const { categories, cards, purchases, openSheet, openPurchase } = useStore();
+  const { groups } = useShared();
+  const group = groups.find((g) => g.transaction_id === tx.id);
   const cat = categories.find((c) => c.id === tx.category_id);
   const card = tx.card_id ? cards.find((c) => c.id === tx.card_id) : undefined;
   const purchase = tx.purchase_id ? purchases.find((p) => p.id === tx.purchase_id) : undefined;
@@ -15,7 +20,7 @@ export function TxRow({ tx, showDate = false }: { tx: Transaction; showDate?: bo
 
   return (
     <button
-      onClick={() => (purchase ? openPurchase({ purchase }) : openSheet({ editing: tx }))}
+      onClick={() => (group ? router.push(`/dividir/${group.id}`) : purchase ? openPurchase({ purchase }) : openSheet({ editing: tx }))}
       className="press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left hover:bg-surface"
     >
       <span
@@ -38,7 +43,7 @@ export function TxRow({ tx, showDate = false }: { tx: Transaction; showDate?: bo
             </span>
           )}
           {tx.recurring_id && !card && <span className="shrink-0 rounded-full bg-inset px-1.5 py-px text-[10px]">fijo</span>}
-          {split && <span className="shrink-0 rounded-full bg-inset px-1.5 py-px text-[10px]">dividido</span>}
+          {(split || group) && <span className="shrink-0 rounded-full bg-inset px-1.5 py-px text-[10px]">dividido</span>}
           {tx.pending && <span className="shrink-0 rounded-full bg-inset px-1.5 py-px text-[10px]">sin subir</span>}
         </span>
       </span>

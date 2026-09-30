@@ -21,7 +21,7 @@ type Adding = null | "menu";
 export default function Fijos() {
   const { recurring, categories, saveRecurring, txs, month, cards, purchases, openPurchase, needsMigration } = useStore();
   const prelaunch = usePrelaunch();
-  const { summary } = useCardSummary();
+  const { summary, rows: cardRows } = useCardSummary();
   const [editing, setEditing] = useState<Partial<Recurring> | null>(null);
   const [cardForm, setCardForm] = useState<Partial<Card> | null>(null);
   const [adding, setAdding] = useState<Adding>(null);
@@ -120,9 +120,15 @@ export default function Fijos() {
       )}
 
       {/* Cada tarjeta, con sus suscripciones y cuotas */}
-      {summary.map(({ card, next, dueOn }) => {
+      {summary.map(({ card, next, dueOn, period }) => {
         const subs = recurring.filter((r) => r.card_id === card.id);
         const plans = plansOf(card.id);
+        // Compras en 1 pago que entran en el próximo resumen
+        const oneOffs = cardRows
+          .filter((t) => t.card_id === card.id && t.occurred_on.startsWith(period) && t.purchase_id)
+          .map((t) => ({ t, p: purchases.find((p) => p.id === t.purchase_id) }))
+          .filter((x): x is { t: typeof x.t; p: Purchase } => !!x.p && x.p.installments === 1);
+        const periodShort = monthLabel(period).split(" ")[0].slice(0, 3).toLowerCase();
         return (
           <section key={card.id} className="rise">
             <Link href={`/tarjetas/${card.id}`} className="press mb-1 flex items-center gap-2 px-1">
@@ -154,7 +160,19 @@ export default function Fijos() {
                   />
                 );
               })}
-              {!subs.length && !plans.length && (
+              {oneOffs.map(({ t, p }) => (
+                <Row
+                  key={t.id}
+                  emoji={cat(p.category_id)?.emoji ?? "🛍️"}
+                  color={cat(p.category_id)?.color}
+                  title={p.description}
+                  sub="Compra en 1 pago"
+                  badge={`resumen ${periodShort}`}
+                  amount={money(t.amount)}
+                  onClick={() => openPurchase({ purchase: p })}
+                />
+              ))}
+              {!subs.length && !plans.length && !oneOffs.length && (
                 <li className="px-4 py-3.5 text-sm text-muted">Sin suscripciones ni cuotas. Próximo pago {dueOn.slice(8, 10)}/{dueOn.slice(5, 7)}.</li>
               )}
               <li className="grid grid-cols-2 divide-x divide-line">

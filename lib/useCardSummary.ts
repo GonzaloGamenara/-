@@ -47,5 +47,5 @@ export function useCardSummary() {
     [cards, rows, recurring],
   );
 
-  return { summary, loading: rows === null };
+  return { summary, rows: rows ?? [], loading: rows === null };
 }

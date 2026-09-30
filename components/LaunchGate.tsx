@@ -79,6 +79,9 @@ export function PrelaunchCard() {
           <Link href="/ajustes" className="press rounded-2xl bg-inset py-3 text-center text-sm font-semibold">
             Categorías
           </Link>
+          <Link href="/dividir" className="press col-span-2 rounded-2xl bg-inset py-3 text-center text-sm font-semibold">
+            Dividir una cuenta
+          </Link>
         </div>
       </div>
     </section>

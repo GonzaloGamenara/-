@@ -91,7 +91,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </ul>
       </nav>
 
-      {sheet.open && (!prelaunch || sheet.split) && <QuickAdd />}
+      {sheet.open && !prelaunch && <QuickAdd />}
       {purchaseSheet.open && <PurchaseSheet />}
 
       {toastMsg && (

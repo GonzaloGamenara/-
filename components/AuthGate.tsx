@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { isConfigured, supabase } from "@/lib/supabase";
 import { DataProvider } from "@/lib/store";
+import { SharedProvider } from "@/lib/sharedStore";
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -29,7 +30,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
       email={session.user.email ?? ""}
       initialAlias={(session.user.user_metadata?.alias as string | undefined) ?? ""}
     >
-      {children}
+      <SharedProvider>{children}</SharedProvider>
     </DataProvider>
   );
 }

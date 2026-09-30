@@ -20,20 +20,27 @@ export function Sheet({
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    // iOS ignora overflow:hidden en el body: lo fijamos en su lugar y lo restauramos al cerrar
+    const body = document.body.style;
+    const locked = body.position === "fixed";
+    const y = locked ? 0 : window.scrollY;
+    const prev = { position: body.position, top: body.top, width: body.width, overflow: body.overflow };
+    if (!locked) Object.assign(body, { position: "fixed", top: `-${y}px`, width: "100%", overflow: "hidden" });
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
+      if (!locked) {
+        Object.assign(body, prev);
+        window.scrollTo(0, y);
+      }
     };
   }, [open, onClose]);
 
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true">
-      <div className="fade-in absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="fade-in absolute inset-0 touch-none bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div
-        className={`sheet-in relative w-full max-w-lg overflow-y-auto overflow-x-hidden rounded-t-[32px] border border-line bg-bg/95 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl backdrop-blur-2xl sm:rounded-[32px] ${
+        className={`sheet-in relative w-full max-w-lg overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-[32px] border border-line bg-bg/95 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl backdrop-blur-2xl sm:rounded-[32px] ${
           tall ? "max-h-[96dvh]" : "max-h-[88dvh]"
         }`}
       >

@@ -10,10 +10,13 @@ import { PageHeader } from "@/components/PageHeader";
 import { DayBars, Donut } from "@/components/charts";
 import { TxRow } from "@/components/TxRow";
 import { ArrowUpRight } from "@/components/Icons";
+import { useShared } from "@/lib/sharedStore";
 
 export default function Home() {
   const { month, txs, prevTxs, categories, recurring, loading, openSheet, splits } = useStore();
-  const owed = splits.filter((x) => !x.settled_on).reduce((a, x) => a + x.amount, 0);
+  const { myNet } = useShared();
+  // Saldo con otras personas: compras divididas + cuentas compartidas
+  const owed = Math.round((splits.filter((x) => !x.settled_on).reduce((a, x) => a + x.amount, 0) + myNet) * 100) / 100;
   const s = useMemo(
     () => monthStats(month, txs, prevTxs, categories, recurring),
     [month, txs, prevTxs, categories, recurring],
@@ -92,12 +95,13 @@ export default function Home() {
             />
           </section>
 
-          {owed > 0 && (
+          {Math.abs(owed) >= 1 && (
             <Link href="/dividir" className="glass press rise flex items-center justify-between rounded-3xl px-4 py-3.5" style={{ animationDelay: "210ms" }}>
               <span className="text-sm">
-                <span className="text-muted">Te deben</span> <b className="num">{money(owed)}</b>
+                <span className="text-muted">{owed > 0 ? "Te deben" : "Debés"}</span>{" "}
+                <b className={`num ${owed > 0 ? "text-inc" : "text-exp"}`}>{money(Math.abs(owed))}</b>
               </span>
-              <span className="text-xs text-muted">Ver quién →</span>
+              <span className="text-xs text-muted">Ver detalle →</span>
             </Link>
           )}
 
