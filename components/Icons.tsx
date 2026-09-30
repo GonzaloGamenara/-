@@ -51,3 +51,9 @@ export const ArrowUpRight = (p: SVGProps<SVGSVGElement>) => (
 export const XIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M18 6 6 18M6 6l12 12" /></svg>
 );
+export const CardIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><rect x="2.5" y="5" width="19" height="14" rx="2.5" /><path d="M2.5 10h19M6.5 15h4" /></svg>
+);
+export const SplitIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><circle cx="8" cy="8" r="3" /><circle cx="16" cy="8" r="3" /><path d="M3 20a5 5 0 0 1 10 0M11 20a5 5 0 0 1 10 0" /></svg>
+);

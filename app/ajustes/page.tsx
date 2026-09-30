@@ -6,7 +6,8 @@ import { supabase } from "@/lib/supabase";
 import type { Category, Kind } from "@/lib/types";
 import { Sheet } from "@/components/Sheet";
 import { PageHeader } from "@/components/PageHeader";
-import { PlusIcon, TrashIcon } from "@/components/Icons";
+import Link from "next/link";
+import { CardIcon, ChevronRight, PlusIcon, SplitIcon, TrashIcon } from "@/components/Icons";
 
 const EMOJIS = ["🛒", "🍔", "☕", "🍕", "🚌", "🚗", "⛽", "🏠", "💡", "📱", "📺", "🎮", "💊", "🏥", "📚", "🎓", "👕", "👟", "🎉", "🍻", "🎁", "✈️", "🐶", "💇", "🏋️", "💼", "💰", "🏷️", "🧩", "✨"];
 
@@ -57,6 +58,30 @@ export default function Ajustes() {
   return (
     <div className="grid gap-5">
       <PageHeader title="Perfil" subtitle={email} />
+
+      <section className="rise grid gap-2">
+        <h2 className="px-1 text-sm font-semibold">Próximamente</h2>
+        <div className="glass grid divide-y divide-line overflow-hidden rounded-3xl">
+          {[
+            { href: "/tarjetas", title: "Tarjetas y cuotas", text: "Desglose del resumen por compra y cuota", Icon: CardIcon },
+            { href: "/dividir", title: "Dividir gastos", text: "Tu parte en las métricas y quién te debe", Icon: SplitIcon },
+          ].map(({ href, title, text, Icon }) => (
+            <Link key={href} href={href} className="press flex items-center gap-3 px-4 py-3.5">
+              <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset">
+                <Icon width={20} height={20} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2 font-medium">
+                  {title}
+                  <span className="rounded-full bg-accent2/15 px-2 py-0.5 text-[10px] font-semibold text-accent2">En desarrollo</span>
+                </span>
+                <span className="block truncate text-xs text-muted">{text}</span>
+              </span>
+              <ChevronRight width={18} height={18} className="shrink-0 text-muted" />
+            </Link>
+          ))}
+        </div>
+      </section>
 
       {(["expense", "income"] as const).map((kind) => (
         <section key={kind} className="rise">
