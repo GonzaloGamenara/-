@@ -1,57 +1,95 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import { launchTime } from "@/lib/launch";
+import Link from "next/link";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { isPrelaunch, launchTime } from "@/lib/launch";
 
-const pad = (n: number) => String(n).padStart(2, "0");
+const LaunchCtx = createContext(false);
+/** true mientras la cuenta todavía no empezó (modo preparación) */
+export const usePrelaunch = () => useContext(LaunchCtx);
 
-/** Mantiene la app cerrada hasta la fecha de inicio y se abre sola al llegar. */
-export function LaunchGate({ children }: { children: ReactNode }) {
-  const [now, setNow] = useState<number | null>(null);
-  const target = launchTime();
+/** Sabe si ya arrancó y se destraba solo a las 00:00, sin recargar. */
+export function LaunchProvider({ children }: { children: ReactNode }) {
+  const [locked, setLocked] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const tick = () => setNow(Date.now());
-    tick();
-    const id = setInterval(tick, 1000);
-    document.addEventListener("visibilitychange", tick);
+    const check = () => setLocked(isPrelaunch());
+    check();
+    const ms = launchTime() - Date.now();
+    // setTimeout admite hasta ~24 días; si falta más, alcanza con el chequeo al volver a la app
+    const timer = ms > 0 && ms < 2 ** 31 - 1 ? setTimeout(check, ms + 50) : undefined;
+    document.addEventListener("visibilitychange", check);
     return () => {
-      clearInterval(id);
-      document.removeEventListener("visibilitychange", tick);
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", check);
     };
   }, []);
 
-  if (now === null) return <div className="min-h-dvh" />;
-  if (now >= target) return <>{children}</>;
+  if (locked === null) return <div className="min-h-dvh" />;
+  return <LaunchCtx.Provider value={locked}>{children}</LaunchCtx.Provider>;
+}
 
-  const left = Math.max(0, target - now);
+const pad = (n: number) => String(n).padStart(2, "0");
+
+function Countdown() {
+  const [left, setLeft] = useState(() => Math.max(0, launchTime() - Date.now()));
+  useEffect(() => {
+    const id = setInterval(() => setLeft(Math.max(0, launchTime() - Date.now())), 1000);
+    return () => clearInterval(id);
+  }, []);
   const h = Math.floor(left / 3.6e6);
   const m = Math.floor((left % 3.6e6) / 6e4);
   const s = Math.floor((left % 6e4) / 1e3);
-  const label = new Intl.DateTimeFormat("es-AR", { weekday: "long", day: "numeric", month: "long" }).format(new Date(target));
-
   return (
-    <main className="mx-auto grid min-h-dvh max-w-sm content-center justify-items-center gap-6 px-6 text-center">
+    <div className="glass num flex items-center gap-2 rounded-3xl px-6 py-4 text-4xl font-semibold" aria-label="Tiempo restante">
+      <span>{pad(h)}</span><span className="text-muted">:</span>
+      <span>{pad(m)}</span><span className="text-muted">:</span>
+      <span>{pad(s)}</span>
+    </div>
+  );
+}
+
+/** Reemplaza Inicio y Movimientos hasta que arranque la cuenta. */
+export function PrelaunchCard() {
+  const label = new Intl.DateTimeFormat("es-AR", { weekday: "long", day: "numeric", month: "long" }).format(new Date(launchTime()));
+  return (
+    <section className="rise grid justify-items-center gap-6 px-2 pb-6 pt-14 text-center">
       <div
         className="pop grid size-16 place-items-center rounded-[28%] text-3xl font-extrabold text-[#10130a]"
         style={{ background: "linear-gradient(135deg, #c4f542, #5eead4)" }}
       >
         $
       </div>
-      <div className="rise">
+      <div>
         <h1 className="text-3xl font-semibold tracking-tight">Arranca mañana</h1>
-        <p className="mt-2 text-muted">
-          La cuenta empieza el <span className="text-fg">{label}</span>. Hasta entonces no se carga ni se cuenta nada.
+        <p className="mx-auto mt-2 max-w-xs text-muted">
+          La cuenta empieza el <span className="text-fg">{label}</span>. Hasta entonces no se calcula nada.
         </p>
       </div>
-      <div className="glass rise num flex items-center gap-2 rounded-3xl px-6 py-4 text-4xl font-semibold" style={{ animationDelay: "80ms" }} aria-label="Tiempo restante">
-        <span>{pad(h)}</span>
-        <span className="text-muted">:</span>
-        <span>{pad(m)}</span>
-        <span className="text-muted">:</span>
-        <span>{pad(s)}</span>
+      <Countdown />
+      <div className="glass w-full max-w-sm rounded-3xl p-5 text-left">
+        <h2 className="font-medium">Mientras tanto, dejá todo listo</h2>
+        <p className="mt-1 text-sm text-muted">
+          Cargá tus fijos (sueldo, beca, alquiler, suscripciones) y ajustá tus categorías. Se empiezan a registrar solos desde el primer día.
+        </p>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Link href="/fijos" className="press rounded-2xl bg-accent py-3 text-center text-sm font-semibold text-accent-ink">
+            Cargar fijos
+          </Link>
+          <Link href="/ajustes" className="press rounded-2xl bg-surface py-3 text-center text-sm font-semibold">
+            Categorías
+          </Link>
+        </div>
       </div>
-      <p className="text-xs text-muted">Se abre sola a las 00:00. Mientras tanto, podés dejarla instalada en el celu.</p>
-    </main>
+    </section>
+  );
+}
+
+/** Aviso chico para las pantallas habilitadas durante la preparación. */
+export function PrelaunchBanner() {
+  return (
+    <div className="fade-in mb-3 rounded-2xl border border-line bg-surface px-3.5 py-2.5 text-sm text-muted">
+      <b className="text-fg">Modo preparación.</b> Nada se calcula ni se carga hasta el {new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "long" }).format(new Date(launchTime()))}.
+    </div>
   );
 }

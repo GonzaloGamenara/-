@@ -10,6 +10,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { usePrelaunch } from "@/components/LaunchGate";
+import { launchMonth } from "./launch";
 import { supabase } from "./supabase";
 import type { Category, Kind, Recurring, Transaction } from "./types";
 import {
@@ -125,7 +127,11 @@ export function DataProvider({
   email: string;
   children: ReactNode;
 }) {
-  const [month, setMonth] = useState(currentMonth);
+  const prelaunch = usePrelaunch();
+  const prelaunchRef = useRef(prelaunch);
+  prelaunchRef.current = prelaunch;
+  // Antes del arranque el mes "activo" ya es el del lanzamiento (nunca septiembre)
+  const [month, setMonth] = useState(() => (prelaunch ? launchMonth() : currentMonth()));
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [recurring, setRecurring] = useState<Recurring[]>([]);
@@ -213,7 +219,7 @@ export function DataProvider({
         let txData = (txs.data ?? []) as Transaction[];
 
         // Fijos del mes en curso: se generan solos cuando llega su día
-        if (m === currentMonth()) {
+        if (m === currentMonth() && !prelaunchRef.current) {
           const today = todayISO();
           const have = new Set(txData.filter((t) => t.period === m).map((t) => t.recurring_id));
           const due = ((recs.data ?? []) as Recurring[])
@@ -276,6 +282,17 @@ export function DataProvider({
   useEffect(() => {
     load(month);
   }, [month, load]);
+
+  // Cuando arranca la cuenta (00:00): ir al mes actual y generar los fijos que ya corresponden
+  const wasPrelaunch = useRef(prelaunch);
+  useEffect(() => {
+    if (wasPrelaunch.current && !prelaunch) {
+      const ym = currentMonth();
+      if (ym !== monthRef.current) setMonth(ym);
+      else load(ym);
+    }
+    wasPrelaunch.current = prelaunch;
+  }, [prelaunch, load]);
 
   // Al volver a la app: refrescar datos (fijos que cayeron, otro dispositivo) y
   // saltar al mes nuevo si la dejaste abierta durante un cambio de mes.

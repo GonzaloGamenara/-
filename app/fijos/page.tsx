@@ -6,11 +6,13 @@ import { currentMonth, dueDate, money, parseAmount, todayISO } from "@/lib/forma
 import type { Kind, Recurring } from "@/lib/types";
 import { Sheet } from "@/components/Sheet";
 import { PageHeader } from "@/components/PageHeader";
+import { usePrelaunch } from "@/components/LaunchGate";
 import { PlusIcon, TrashIcon } from "@/components/Icons";
 
 export default function Fijos() {
   const { recurring, categories, saveRecurring, txs, month } = useStore();
-  const isCurrent = month === currentMonth();
+  const prelaunch = usePrelaunch();
+  const isCurrent = month === currentMonth() && !prelaunch;
   const applied = new Set(txs.filter((t) => t.period === month).map((t) => t.recurring_id));
   const [editing, setEditing] = useState<Partial<Recurring> | null>(null);
 
@@ -53,8 +55,10 @@ export default function Fijos() {
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-medium">{r.name}</span>
                           <span className="text-xs text-muted">
-                            Todos los {r.day}
-                            {!r.active
+                            Día {r.day} de cada mes
+                            {prelaunch && r.active
+                              ? " · arranca en octubre"
+                              : !r.active
                               ? " · pausado"
                               : isCurrent && applied.has(r.id)
                                 ? " · ✓ cargado este mes"

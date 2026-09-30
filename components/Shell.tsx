@@ -6,6 +6,7 @@ import { useEffect, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
 import { HomeIcon, ListIcon, PlusIcon, RepeatIcon, UserIcon, CloudOffIcon } from "./Icons";
 import { QuickAdd } from "./QuickAdd";
+import { PrelaunchBanner, PrelaunchCard, usePrelaunch } from "./LaunchGate";
 
 const NAV = [
   { href: "/", label: "Inicio", Icon: HomeIcon },
@@ -18,15 +19,19 @@ const NAV = [
 export function Shell({ children }: { children: ReactNode }) {
   const path = usePathname();
   const { openSheet, toastMsg, pendingCount, sheet } = useStore();
+  const prelaunch = usePrelaunch();
+  // En modo preparación solo están habilitados Fijos y Perfil
+  const blocked = prelaunch && (path === "/" || path === "/movimientos");
+  const items = NAV.filter((i) => !prelaunch || (i !== null && i.href !== "/movimientos"));
 
   // Atajos del ícono de la app: /?add=expense | /?add=income
   useEffect(() => {
     const kind = new URLSearchParams(window.location.search).get("add");
     if (kind === "expense" || kind === "income") {
-      openSheet({ kind });
+      if (!prelaunch) openSheet({ kind });
       window.history.replaceState(null, "", window.location.pathname);
     }
-  }, [openSheet]);
+  }, [openSheet, prelaunch]);
 
   return (
     <div className="mx-auto min-h-dvh w-full max-w-2xl px-4 pb-36 pt-[max(1rem,env(safe-area-inset-top))]">
@@ -36,11 +41,12 @@ export function Shell({ children }: { children: ReactNode }) {
           {pendingCount} movimiento{pendingCount > 1 ? "s" : ""} esperando conexión
         </div>
       )}
-      {children}
+      {prelaunch && !blocked && <PrelaunchBanner />}
+      {blocked ? <PrelaunchCard /> : children}
 
       <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <ul className="glass flex w-full max-w-md items-center justify-between rounded-full px-2 py-1.5">
-          {NAV.map((item, i) =>
+          {items.map((item) =>
             item === null ? (
               <li key="fab" className="-mt-7 px-1">
                 <button
@@ -70,7 +76,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </ul>
       </nav>
 
-      {sheet.open && <QuickAdd />}
+      {sheet.open && !prelaunch && <QuickAdd />}
 
       {toastMsg && (
         <div role="status" aria-live="polite" className="pop pointer-events-none fixed inset-x-0 bottom-28 z-[60] flex justify-center px-6">
