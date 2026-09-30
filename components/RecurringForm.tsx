@@ -19,7 +19,9 @@ export function RecurringForm({
 }) {
   const { categories, cards, deleteRecurring } = useStore();
   const kind = (initial.kind ?? "expense") as Kind;
-  const card = initial.card_id ? cards.find((c) => c.id === initial.card_id) : undefined;
+  // Un gasto fijo se puede pagar con tarjeta: en ese caso es una suscripción de esa tarjeta
+  const [cardId, setCardId] = useState<string | null>(initial.card_id ?? null);
+  const card = cardId ? cards.find((c) => c.id === cardId) : undefined;
   const [name, setName] = useState(initial.name ?? "");
   const [amount, setAmount] = useState(initial.amount ? new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 }).format(initial.amount) : "");
   const [day, setDay] = useState(String(initial.day ?? 1));
@@ -37,24 +39,46 @@ export function RecurringForm({
       onClose={onClose}
       title={card ? `${initial.id ? "Editar" : "Nueva"} suscripción` : `${initial.id ? "Editar" : "Nuevo"} ${kind === "income" ? "ingreso" : "gasto"} fijo`}
     >
-      {card && (
-        <p className="-mt-2 mb-3 text-sm text-muted">
-          Se cobra en <b className="text-fg">{card.name}</b> y se suma al resumen del día {card.due_day} de cada mes.
-        </p>
-      )}
+
       <form
         className="grid gap-3"
         onSubmit={async (e) => {
           e.preventDefault();
           if (!valid) return;
           setBusy(true);
-          await onSave({ ...initial, kind, name, amount: amountNum, day: Number(day), category_id: catId || null, active });
+          await onSave({ ...initial, kind, name, amount: amountNum, day: Number(day), category_id: catId || null, active, card_id: kind === "expense" ? cardId : null });
         }}
       >
         <label className="grid gap-1 text-sm text-muted">
           Nombre
           <input className={field} value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder={card ? "Spotify, Netflix, iCloud…" : kind === "income" ? "Sueldo, Beca…" : "Alquiler, Luz…"} autoFocus={!initial.id} />
         </label>
+        {kind === "expense" && cards.length > 0 && (
+          <div className="grid gap-1.5">
+            <span className="text-sm text-muted">Se paga con</span>
+            <div className="hide-scroll -mx-5 flex gap-1.5 overflow-x-auto px-5 text-sm">
+              <button
+                type="button"
+                onClick={() => setCardId(null)}
+                className={`press shrink-0 rounded-full px-3.5 py-1.5 font-medium ${!cardId ? "bg-fg text-bg" : "bg-inset text-muted"}`}
+              >
+                Efectivo / débito
+              </button>
+              {cards.map((c) => (
+                <button
+                  type="button"
+                  key={c.id}
+                  onClick={() => setCardId(c.id)}
+                  className={`press flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 font-medium ${cardId === c.id ? "bg-fg text-bg" : "bg-inset text-muted"}`}
+                >
+                  <span className="size-2 rounded-full" style={{ background: c.color }} />
+                  {c.name}
+                </button>
+              ))}
+            </div>
+            {card && <p className="text-xs text-muted">Se suma al resumen de {card.name} (pago el día {card.due_day}).</p>}
+          </div>
+        )}
         <div className={card ? "grid" : "grid grid-cols-2 gap-3"}>
           <label className="grid gap-1 text-sm text-muted">
             Monto {card ? "por mes" : ""}

@@ -3,18 +3,17 @@
 import { useEffect } from "react";
 
 /**
- * En algunas versiones de iOS, una PWA instalada reporta un viewport más corto que la
- * pantalla real (falta aprox. el área de la barra de inicio). Los elementos con
- * `position: fixed; bottom: 0` quedan entonces flotando por encima del borde.
- * Medimos esa diferencia y la exponemos como --ios-gap para bajar la barra.
+ * En iOS, una PWA instalada a veces reporta un viewport más corto que la pantalla
+ * (≈ el área de la barra de inicio) y lo fijado abajo queda flotando. Medimos la diferencia
+ * y la exponemos como --ios-gap. Al abrir la app iOS da valores transitorios raros, así que
+ * se vuelve a medir varias veces y ante cualquier cambio, y solo se aceptan valores razonables.
  */
 export function useIosViewportFix() {
   useEffect(() => {
     const nav = navigator as Navigator & { standalone?: boolean };
     const standalone = window.matchMedia("(display-mode: standalone)").matches || nav.standalone === true;
-    if (!standalone) return;
+    if (!standalone || !/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
 
-    // Si hay inset superior, el viewport arranca en el borde de arriba: la diferencia está abajo.
     const probe = document.createElement("div");
     probe.style.cssText =
       "position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top)";
@@ -22,17 +21,25 @@ export function useIosViewportFix() {
 
     const apply = () => {
       const topInset = probe.offsetHeight;
-      const portrait = window.innerHeight > window.innerWidth;
-      const diff = Math.round(screen.height - window.innerHeight);
-      const gap = topInset > 0 && portrait && diff > 0 && diff <= 80 ? diff : 0;
+      const h = window.innerHeight;
+      const portrait = h > window.innerWidth;
+      const diff = Math.round(screen.height - h);
+      // Solo corregimos el caso conocido: falta entre 20 y 50px abajo (la barra de inicio)
+      const gap = topInset > 0 && portrait && diff >= 20 && diff <= 50 ? diff : 0;
       document.documentElement.style.setProperty("--ios-gap", `${gap}px`);
     };
+
     apply();
-    window.addEventListener("resize", apply);
-    window.addEventListener("orientationchange", apply);
+    const timers = [120, 400, 1000, 2500].map((ms) => setTimeout(apply, ms));
+    const events = ["resize", "orientationchange", "pageshow", "focus"] as const;
+    events.forEach((e) => window.addEventListener(e, apply));
+    document.addEventListener("visibilitychange", apply);
+    window.visualViewport?.addEventListener("resize", apply);
     return () => {
-      window.removeEventListener("resize", apply);
-      window.removeEventListener("orientationchange", apply);
+      timers.forEach(clearTimeout);
+      events.forEach((e) => window.removeEventListener(e, apply));
+      document.removeEventListener("visibilitychange", apply);
+      window.visualViewport?.removeEventListener("resize", apply);
       probe.remove();
     };
   }, []);

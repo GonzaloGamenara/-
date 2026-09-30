@@ -55,6 +55,15 @@ export function remaining(p: Purchase, fromPeriod: string) {
   return { count, total: Math.round(total * 100) / 100 };
 }
 
+/** Próxima cuota a pagar desde un mes (número y mes), o null si ya terminó. */
+export function nextInstallment(p: Purchase, fromPeriod: string) {
+  for (let k = Math.max(1, p.from_installment); k <= p.installments; k++) {
+    const period = addMonths(p.first_period, k - 1);
+    if (period >= fromPeriod) return { k, period };
+  }
+  return null;
+}
+
 /** Cuota que corresponde a un mes (o null si ese mes no tiene cuota). */
 export function installmentFor(p: Purchase, period: string) {
   for (let k = Math.max(1, p.from_installment); k <= p.installments; k++) {

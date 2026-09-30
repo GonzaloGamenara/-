@@ -7,6 +7,9 @@ import { supabase } from "@/lib/supabase";
 import { dayLabel, money } from "@/lib/format";
 import type { Split } from "@/lib/types";
 import { MigrationNotice } from "@/components/MigrationNotice";
+import { AliasField } from "@/components/AliasField";
+import { debtMessage, shareText } from "@/lib/share";
+import { SplitIcon } from "@/components/Icons";
 import { PageHeader } from "@/components/PageHeader";
 import { ChevronLeft } from "@/components/Icons";
 
@@ -16,7 +19,7 @@ interface Origin {
 }
 
 export default function Dividir() {
-  const { splits, purchases, settleSplit, needsMigration, openSheet } = useStore();
+  const { splits, purchases, settleSplit, needsMigration, openSheet, alias } = useStore();
   const [origins, setOrigins] = useState<Record<string, Origin>>({});
   const [showHistory, setShowHistory] = useState(false);
 
@@ -81,6 +84,18 @@ export default function Dividir() {
           <p className="mt-1 text-xs text-muted">
             {people.length ? `${people.length} ${people.length === 1 ? "persona" : "personas"}` : "Nadie te debe nada 🎉"}
           </p>
+          <button
+            onClick={() => openSheet({ split: true })}
+            className="press mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-accent2 py-3.5 font-semibold text-black"
+          >
+            <SplitIcon width={18} height={18} /> Dividir una cuenta
+          </button>
+        </section>
+      )}
+
+      {!needsMigration && (
+        <section className="glass rise rounded-3xl p-4">
+          <AliasField />
         </section>
       )}
 
@@ -88,8 +103,16 @@ export default function Dividir() {
         <section key={p.name} className="glass rise overflow-hidden rounded-3xl">
           <div className="flex items-center gap-3 px-4 pb-2 pt-4">
             <span className="grid size-10 place-items-center rounded-full bg-inset font-semibold">{p.name[0]?.toUpperCase()}</span>
-            <span className="flex-1 font-semibold">{p.name}</span>
-            <span className="num font-semibold">{money(p.total)}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-semibold">{p.name}</span>
+              <span className="num text-sm text-muted">{money(p.total)}</span>
+            </span>
+            <button
+              onClick={() => shareText(debtMessage(p.name, p.items.map((s) => ({ label: originOf(s).label, amount: s.amount })), alias))}
+              className="press rounded-full bg-[#25D366] px-4 py-2 text-sm font-semibold text-black"
+            >
+              Pedir
+            </button>
           </div>
           <ul className="divide-y divide-line">
             {p.items.map((s) => {
@@ -101,8 +124,8 @@ export default function Dividir() {
                     {o.date && <span className="text-xs capitalize text-muted">{dayLabel(o.date)}</span>}
                   </span>
                   <span className="num text-muted">{money(s.amount)}</span>
-                  <button onClick={() => settleSplit(s.id, true)} className="press rounded-full bg-inc px-3 py-1.5 text-xs font-semibold text-on-inc">
-                    Cobrado
+                  <button onClick={() => settleSplit(s.id, true)} className="press rounded-full border border-line px-3 py-1.5 text-xs font-semibold">
+                    ✓ Cobrado
                   </button>
                 </li>
               );
@@ -120,12 +143,9 @@ export default function Dividir() {
       ))}
 
       {!needsMigration && !pending.length && (
-        <div className="rise grid justify-items-center gap-2 px-6 py-6 text-center text-sm text-muted">
-          <p>Para dividir, tocá <b className="text-fg">Dividir</b> al anotar un gasto con el botón +, o al cargar una compra con tarjeta.</p>
-          <button onClick={() => openSheet()} className="press mt-1 rounded-full bg-surface px-4 py-2 font-medium text-fg">
-            Anotar un gasto
-          </button>
-        </div>
+        <p className="rise px-6 text-center text-sm text-muted">
+          También podés dividir desde el botón <b className="text-fg">+</b> → <b className="text-fg">Dividir</b>, o al cargar una compra con tarjeta.
+        </p>
       )}
 
       {settled.length > 0 && (

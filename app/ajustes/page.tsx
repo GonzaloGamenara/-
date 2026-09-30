@@ -9,7 +9,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { MigrationNotice } from "@/components/MigrationNotice";
 import { money } from "@/lib/format";
 import Link from "next/link";
-import { CardIcon, ChevronRight, PlusIcon, SplitIcon, TrashIcon } from "@/components/Icons";
+import { ChevronRight, PlusIcon, SplitIcon, TrashIcon } from "@/components/Icons";
+import { AliasField } from "@/components/AliasField";
 
 const EMOJIS = ["🛒", "🍔", "☕", "🍕", "🚌", "🚗", "⛽", "🏠", "💡", "📱", "📺", "🎮", "💊", "🏥", "📚", "🎓", "👕", "👟", "🎉", "🍻", "🎁", "✈️", "🐶", "💇", "🏋️", "💼", "💰", "🏷️", "🧩", "✨"];
 
@@ -76,49 +77,59 @@ export default function Ajustes() {
       <PageHeader title="Perfil" subtitle={email} />
 
       <MigrationNotice />
-      <section className="glass rise grid divide-y divide-line overflow-hidden rounded-3xl">
-        {[
-          { href: "/tarjetas", title: "Tarjetas", text: cards.length ? `${cards.length} ${cards.length === 1 ? "tarjeta" : "tarjetas"}` : "Resumen por compra y cuota", Icon: CardIcon },
-          { href: "/dividir", title: "Gastos divididos", text: owed > 0 ? `Te deben ${money(owed)}` : "Quién te debe y cuánto", Icon: SplitIcon },
-        ].map(({ href, title, text, Icon }) => (
-          <Link key={href} href={href} className="press flex items-center gap-3 px-4 py-3.5">
-            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset">
-              <Icon width={20} height={20} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block font-medium">{title}</span>
-              <span className="block truncate text-xs text-muted">{text}</span>
-            </span>
-            <ChevronRight width={18} height={18} className="shrink-0 text-muted" />
-          </Link>
-        ))}
+
+      <section className="glass rise rounded-3xl p-4">
+        <AliasField />
       </section>
 
-      {(["expense", "income"] as const).map((kind) => (
-        <section key={kind} className="rise">
-          <div className="mb-2 flex items-center justify-between px-1">
-            <h2 className="text-sm font-semibold">Categorías de {kind === "expense" ? "gastos" : "ingresos"}</h2>
-            <button
-              onClick={() => setEditing({ kind, emoji: "🏷️", color: PALETTE[categories.length % PALETTE.length] })}
-              className="press flex items-center gap-1 rounded-full bg-surface px-3.5 py-2 text-sm font-medium"
-            >
-              <PlusIcon width={16} height={16} /> Nueva
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {categories.filter((c) => c.kind === kind).map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setEditing(c)}
-                className="press flex items-center gap-2 rounded-full border border-line bg-surface py-1.5 pl-2.5 pr-3.5 text-sm"
-              >
-                <span className="size-2.5 rounded-full" style={{ background: c.color }} />
-                {c.emoji} {c.name}
-              </button>
-            ))}
-          </div>
-        </section>
-      ))}
+      <Link href="/dividir" className="glass press rise flex items-center gap-3 rounded-3xl px-4 py-3.5">
+        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset">
+          <SplitIcon width={20} height={20} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-medium">Gastos divididos</span>
+          <span className="block truncate text-xs text-muted">{owed > 0 ? `Te deben ${money(owed)}` : "Dividir una cuenta y ver quién te debe"}</span>
+        </span>
+        <ChevronRight width={18} height={18} className="shrink-0 text-muted" />
+      </Link>
+
+      <section className="glass rise overflow-hidden rounded-3xl">
+        {(["expense", "income"] as const).map((kind) => {
+          const list = categories.filter((c) => c.kind === kind);
+          return (
+            <details key={kind} className="group border-line [&:not(:first-child)]:border-t">
+              <summary className="press flex cursor-pointer list-none items-center gap-3 px-4 py-3.5 [&::-webkit-details-marker]:hidden">
+                <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">{kind === "expense" ? "🏷️" : "💰"}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">Categorías de {kind === "expense" ? "gastos" : "ingresos"}</span>
+                  <span className="block truncate text-xs text-muted">
+                    {list.length} · {list.slice(0, 4).map((c) => c.emoji).join(" ")}
+                  </span>
+                </span>
+                <ChevronRight width={18} height={18} className="shrink-0 text-muted transition-transform group-open:rotate-90" />
+              </summary>
+              <div className="flex flex-wrap gap-2 px-4 pb-4">
+                {list.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setEditing(c)}
+                    className="press flex items-center gap-2 rounded-full border border-line bg-inset py-1.5 pl-2.5 pr-3.5 text-sm"
+                  >
+                    <span className="size-2.5 rounded-full" style={{ background: c.color }} />
+                    {c.emoji} {c.name}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setEditing({ kind, emoji: "🏷️", color: PALETTE[categories.length % PALETTE.length] })}
+                  className="press flex items-center gap-1 rounded-full bg-fg px-3.5 py-1.5 text-sm font-medium text-bg"
+                >
+                  <PlusIcon width={14} height={14} /> Nueva
+                </button>
+              </div>
+            </details>
+          );
+        })}
+      </section>
 
       <section className="glass rise grid divide-y divide-line overflow-hidden rounded-3xl">
         <button onClick={exportCsv} disabled={busy} className="press px-5 py-4 text-left">

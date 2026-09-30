@@ -228,11 +228,11 @@ export default function CardDetail() {
 
 function BackLink() {
   return (
-    <Link href="/tarjetas" className="press rise -ml-1 flex w-fit items-center gap-1 pt-1 text-sm text-muted">
+    <Link href="/fijos" className="press rise -ml-1 flex w-fit items-center gap-1 pt-1 text-sm text-muted">
       <span className="grid size-9 place-items-center rounded-full bg-surface">
         <ChevronLeft width={18} height={18} />
       </span>
-      Tarjetas
+      Fijos
     </Link>
   );
 }

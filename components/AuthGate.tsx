@@ -24,7 +24,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (!checked) return <div className="grid min-h-dvh place-items-center"><Logo /></div>;
   if (!session) return <Login />;
   return (
-    <DataProvider userId={session.user.id} email={session.user.email ?? ""}>
+    <DataProvider
+      userId={session.user.id}
+      email={session.user.email ?? ""}
+      initialAlias={(session.user.user_metadata?.alias as string | undefined) ?? ""}
+    >
       {children}
     </DataProvider>
   );

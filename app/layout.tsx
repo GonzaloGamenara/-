@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   description: "Anotá tus gastos e ingresos en segundos y mirá a dónde se va tu plata.",
   applicationName: "Gastos",
   appleWebApp: { capable: true, title: "Gastos", statusBarStyle: "black-translucent" },
-  icons: { apple: "/icons/apple-touch.png", icon: "/icons/192.png" },
+  icons: { apple: "/icons/apple-touch.png?v=2", icon: "/icons/192.png?v=2" },
   formatDetection: { telephone: false },
 };
 

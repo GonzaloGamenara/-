@@ -82,6 +82,11 @@ export interface PurchaseSheetState {
 interface Store {
   userId: string;
   email: string;
+  /** Alias de Mercado Pago/CBU para cobrar gastos divididos */
+  alias: string;
+  saveAlias: (alias: string) => Promise<void>;
+  /** Nombres usados antes al dividir (para sugerirlos) */
+  recentNames: string[];
   loading: boolean;
   month: string;
   setMonth: (m: string) => void;
@@ -97,7 +102,7 @@ interface Store {
   splits: Split[];
   /** Falta correr la migración 002 en Supabase */
   needsMigration: boolean;
-  addTx: (t: NewTx, splits?: SplitShare[]) => Promise<void>;
+  addTx: (t: NewTx, splits?: SplitShare[]) => Promise<boolean>;
   updateTx: (id: string, patch: Partial<NewTx>) => Promise<void>;
   deleteTx: (id: string) => Promise<void>;
   saveRecurring: (r: Partial<Recurring> & Pick<Recurring, "kind" | "name" | "amount">) => Promise<void>;
@@ -126,6 +131,8 @@ export interface SheetState {
   open: boolean;
   editing?: Transaction | null;
   kind?: Kind;
+  /** Abrir directo en "Dividir" (funciona también en modo preparación) */
+  split?: boolean;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -174,12 +181,24 @@ const normalizeTx = (t: Transaction): Transaction => ({
 export function DataProvider({
   userId,
   email,
+  initialAlias,
   children,
 }: {
   userId: string;
   email: string;
+  initialAlias: string;
   children: ReactNode;
 }) {
+  const [alias, setAlias] = useState(initialAlias);
+  // El alias puede haberse cambiado desde otro dispositivo: lo refrescamos del servidor
+  useEffect(() => {
+    supabase()
+      .auth.getUser()
+      .then(({ data }) => {
+        const a = data.user?.user_metadata?.alias;
+        if (typeof a === "string") setAlias(a);
+      });
+  }, []);
   const prelaunch = usePrelaunch();
   const prelaunchRef = useRef(prelaunch);
   prelaunchRef.current = prelaunch;
@@ -427,20 +446,22 @@ export function DataProvider({
           else setSplits((p) => [...rows, ...p]);
         }
         toast(`${row.kind === "expense" ? "Gasto" : "Ingreso"} guardado ✓${where}`);
-        return;
+        return true;
       }
       if (others.length) {
         setAllTxs((p) => p.filter((x) => x.id !== row.id));
         toast(isNetworkError(error) ? "Sin conexión: los gastos divididos necesitan internet" : "No se pudo guardar: " + error.message);
-        return;
+        return false;
       }
       if (isNetworkError(error)) {
         setAllTxs((p) => p.map((x) => (x.id === row.id ? { ...x, pending: true } : x)));
         persistQueue([...readJSON<Transaction[]>(queueKey(userId), []), row]);
         toast("Guardado sin conexión · se sube solo al volver internet");
+        return true;
       } else {
         setAllTxs((p) => p.filter((x) => x.id !== row.id));
         toast("No se pudo guardar: " + error.message);
+        return false;
       }
     },
     [userId, persistQueue, toast],
@@ -492,7 +513,7 @@ export function DataProvider({
         category_id: r.category_id ?? null,
         day: r.card_id ? (cards.find((c) => c.id === r.card_id)?.due_day ?? r.day ?? 1) : (r.day ?? 1),
         active: r.active ?? true,
-        ...(r.card_id !== undefined ? { card_id: r.card_id } : {}),
+        ...(r.card_id !== undefined && !needsMigration ? { card_id: r.card_id } : {}),
       };
       const { error } = r.id
         ? await db.from("recurring").update(body).eq("id", r.id)
@@ -500,7 +521,7 @@ export function DataProvider({
       if (error) return toast(error.message);
       await load(month);
     },
-    [cards, load, month, toast],
+    [cards, load, month, needsMigration, toast],
   );
 
   const deleteRecurring = useCallback(
@@ -648,6 +669,27 @@ export function DataProvider({
 
   const reload = useCallback(() => load(monthRef.current), [load]);
 
+  // El alias vive en los metadatos del usuario de Supabase (sin tablas extra)
+  const saveAlias = useCallback(
+    async (value: string) => {
+      const clean = value.trim();
+      const { error } = await supabase().auth.updateUser({ data: { alias: clean } });
+      if (error) return toast("No se pudo guardar el alias: " + error.message);
+      setAlias(clean);
+      toast(clean ? "Alias guardado ✓" : "Alias borrado");
+    },
+    [toast],
+  );
+
+  const recentNames = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const x of splits) {
+      const k = x.name.trim().toLowerCase();
+      if (!seen.has(k)) seen.set(k, x.name.trim());
+    }
+    return [...seen.values()].slice(0, 10);
+  }, [splits]);
+
   const saveCategory: Store["saveCategory"] = useCallback(
     async (c) => {
       const db = supabase();
@@ -693,6 +735,9 @@ export function DataProvider({
   const value: Store = {
     userId,
     email,
+    alias,
+    saveAlias,
+    recentNames,
     loading,
     month,
     setMonth,

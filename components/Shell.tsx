@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
-import { HomeIcon, ListIcon, PlusIcon, CardIcon, UserIcon, CloudOffIcon } from "./Icons";
+import { HomeIcon, ListIcon, PlusIcon, RepeatIcon, UserIcon, CloudOffIcon } from "./Icons";
 import { QuickAdd } from "./QuickAdd";
 import { PurchaseSheet } from "./PurchaseSheet";
 import { useIosViewportFix } from "./useIosViewportFix";
@@ -14,7 +14,7 @@ const NAV = [
   { href: "/", label: "Inicio", Icon: HomeIcon, also: [] as string[] },
   { href: "/movimientos", label: "Movimientos", Icon: ListIcon, also: [] as string[] },
   null, // FAB
-  { href: "/fijos", label: "Cuentas", Icon: CardIcon, also: ["/tarjetas"] },
+  { href: "/fijos", label: "Fijos", Icon: RepeatIcon, also: ["/tarjetas"] },
   { href: "/ajustes", label: "Perfil", Icon: UserIcon, also: ["/dividir"] },
 ] as const;
 
@@ -91,7 +91,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </ul>
       </nav>
 
-      {sheet.open && !prelaunch && <QuickAdd />}
+      {sheet.open && (!prelaunch || sheet.split) && <QuickAdd />}
       {purchaseSheet.open && <PurchaseSheet />}
 
       {toastMsg && (
