@@ -7,7 +7,7 @@ import { useStore } from "@/lib/store";
 import { useShared } from "@/lib/sharedStore";
 import { groupBalances, type SharedExpense, type SharedMember } from "@/lib/shared";
 import { dayLabel, money } from "@/lib/format";
-import { debtMessage, shareText } from "@/lib/share";
+import { PedirButton } from "@/components/PedirButton";
 import { Sheet } from "@/components/Sheet";
 import { PeopleInput } from "@/components/PeopleInput";
 import { CategoryChips } from "@/components/CategoryChips";
@@ -17,7 +17,7 @@ import { ChevronLeft, PlusIcon, XIcon } from "@/components/Icons";
 export default function GroupPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { alias, categories } = useStore();
+  const { categories } = useStore();
   const { groups, members, expenses, payments, ready, addPayment, deletePayment, addMember, removeMember, updateGroup, deleteGroup } = useShared();
   const [expenseSheet, setExpenseSheet] = useState<{ initial: SharedExpense | null } | null>(null);
   const [addingPeople, setAddingPeople] = useState(false);
@@ -169,14 +169,7 @@ export default function GroupPage() {
                     <b>{name(t.from)}</b> {fromMe ? "le debés" : "le debe"} a <b>{toMe ? "vos" : name(t.to)}</b>
                     <span className="num block text-base font-semibold">{money(t.amount)}</span>
                   </span>
-                  {toMe && (
-                    <button
-                      onClick={() => shareText(debtMessage(name(t.from), [{ label: g.name, amount: t.amount }], alias))}
-                      className="press rounded-full bg-[#25D366] px-3.5 py-2 text-xs font-semibold text-black"
-                    >
-                      Pedir
-                    </button>
-                  )}
+                  {toMe && <PedirButton name={name(t.from)} items={[{ label: g.name, amount: t.amount }]} />}
                   <button
                     onClick={() => addPayment({ group_id: g.id, from_id: t.from, to_id: t.to, amount: t.amount })}
                     className="press rounded-full border border-line px-3.5 py-2 text-xs font-semibold"
@@ -187,7 +180,6 @@ export default function GroupPage() {
               );
             })}
           </ul>
-          {!alias && <p className="mt-2 px-1 text-xs text-muted">Tip: cargá tu alias en Perfil para que vaya en el mensaje.</p>}
         </section>
       )}
 

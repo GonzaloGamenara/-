@@ -5,15 +5,15 @@ export interface DebtItem {
   amount: number;
 }
 
-/** Mensaje para pedirle a alguien lo que te debe, con tu alias. */
+/** Mensaje para pedirle a alguien lo que te debe; el alias va solo en su línea para copiarlo fácil. */
 export function debtMessage(name: string, items: DebtItem[], alias: string) {
   const total = items.reduce((a, i) => a + i.amount, 0);
   const detail =
     items.length === 1
       ? `De ${items[0].label} te toca ${money(total)}.`
       : `Te paso el detalle:\n${items.map((i) => `• ${i.label}: ${money(i.amount)}`).join("\n")}\nTotal: ${money(total)}.`;
-  const pay = alias ? `\n\nPodés transferirme al alias *${alias}* 🙌` : "";
-  return `¡Hola ${name}! ${detail}${pay}`;
+  const pay = alias ? `\n\nMe lo podés transferir a este alias:\n${alias}` : "";
+  return `¡Hola ${name}! 👋\n${detail}${pay}`;
 }
 
 /** Abre el menú de compartir del celu (WhatsApp, etc.); si no hay, WhatsApp directo. */

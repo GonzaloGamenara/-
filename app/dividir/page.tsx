@@ -8,7 +8,7 @@ import { useShared } from "@/lib/sharedStore";
 import { groupBalances } from "@/lib/shared";
 import { dayLabel, money } from "@/lib/format";
 import { supabase } from "@/lib/supabase";
-import { debtMessage, shareText } from "@/lib/share";
+import { PedirButton } from "@/components/PedirButton";
 import type { Split } from "@/lib/types";
 import { PageHeader } from "@/components/PageHeader";
 import { AliasField } from "@/components/AliasField";
@@ -117,7 +117,7 @@ function Dividir() {
 
 /** Divisiones hechas con la versión anterior (compras con tarjeta divididas, etc.). */
 function LegacySplits() {
-  const { splits, purchases, settleSplit, alias } = useStore();
+  const { splits, purchases, settleSplit } = useStore();
   const [origins, setOrigins] = useState<Record<string, string>>({});
   const pending = splits.filter((s) => !s.settled_on);
 
@@ -147,9 +147,7 @@ function LegacySplits() {
               </span>
               <span className="block truncate text-xs text-muted">{label(s)}</span>
             </span>
-            <button onClick={() => shareText(debtMessage(s.name, [{ label: label(s), amount: s.amount }], alias))} className="press rounded-full bg-[#25D366] px-3 py-1.5 text-xs font-semibold text-black">
-              Pedir
-            </button>
+            <PedirButton name={s.name} items={[{ label: label(s), amount: s.amount }]} />
             <button onClick={() => settleSplit(s.id, true)} className="press rounded-full border border-line px-3 py-1.5 text-xs font-semibold">
               ✓
             </button>
