@@ -9,12 +9,11 @@ import { MigrationNotice } from "@/components/MigrationNotice";
 import Link from "next/link";
 import { ChevronRight, PlusIcon, SplitIcon, TrashIcon } from "@/components/Icons";
 import { AliasField } from "@/components/AliasField";
+import { CategoryForm, CATEGORY_COLORS as PALETTE } from "@/components/CategoryForm";
 import { ExportPanel } from "@/components/ExportPanel";
 import { EyeToggle } from "@/components/EyeToggle";
 
-const EMOJIS = ["🛒", "🍔", "☕", "🍕", "🚌", "🚗", "⛽", "🏠", "💡", "📱", "📺", "🎮", "💊", "🏥", "📚", "🎓", "👕", "👟", "🎉", "🍻", "🎁", "✈️", "🐶", "💇", "🏋️", "💼", "💰", "🏷️", "🧩", "✨"];
 
-const PALETTE = ["#34d399", "#4ade80", "#a3e635", "#facc15", "#fb923c", "#f87171", "#fb7185", "#f472b6", "#c084fc", "#a78bfa", "#60a5fa", "#22d3ee", "#2dd4bf", "#94a3b8"];
 
 export default function Ajustes() {
   const { email, categories, signOut, saveCategory, hideAmounts } = useStore();
@@ -124,92 +123,10 @@ export default function Ajustes() {
           initial={editing}
           onClose={() => setEditing(null)}
           onSave={async (c) => {
-            await saveCategory(c);
-            setEditing(null);
+            if (await saveCategory(c)) setEditing(null);
           }}
         />
       )}
     </div>
-  );
-}
-
-function CategoryForm({
-  initial,
-  onClose,
-  onSave,
-}: {
-  initial: Partial<Category>;
-  onClose: () => void;
-  onSave: (c: Partial<Category> & Pick<Category, "kind" | "name">) => Promise<void>;
-}) {
-  const { deleteCategory } = useStore();
-  const kind = (initial.kind ?? "expense") as Kind;
-  const [name, setName] = useState(initial.name ?? "");
-  const [emoji, setEmoji] = useState(initial.emoji ?? "🏷️");
-  const [color, setColor] = useState(initial.color ?? PALETTE[0]);
-  const field = "w-full rounded-xl border border-line bg-inset px-4 py-3 text-fg outline-none placeholder:text-muted/70 focus:border-accent2";
-
-  return (
-    <Sheet open onClose={onClose} title={initial.id ? "Editar categoría" : "Nueva categoría"}>
-      <form
-        className="grid gap-4"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (name.trim()) await onSave({ ...initial, kind, name, emoji, color });
-        }}
-      >
-        <div className="grid grid-cols-[72px_1fr] gap-3">
-          <div className="grid place-items-center rounded-xl border border-line text-3xl" style={{ background: `color-mix(in srgb, ${color} 25%, transparent)` }} aria-hidden>
-            {emoji}
-          </div>
-          <input className={field} autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre" maxLength={24} />
-        </div>
-        <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-10">
-          {EMOJIS.map((e) => (
-            <button
-              type="button"
-              key={e}
-              onClick={() => setEmoji(e)}
-              aria-label={e}
-              className={`press grid aspect-square place-items-center rounded-xl text-xl ${emoji === e ? "bg-fg/15 ring-2 ring-accent2" : "bg-surface"}`}
-            >
-              {e}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-2.5">
-          {PALETTE.map((c) => (
-            <button
-              type="button"
-              key={c}
-              onClick={() => setColor(c)}
-              aria-label={c}
-              className={`size-9 rounded-full transition-transform ${color === c ? "scale-110 ring-2 ring-fg ring-offset-2 ring-offset-bg" : ""}`}
-              style={{ background: c }}
-            />
-          ))}
-        </div>
-        <div className="flex gap-2">
-          {initial.id && (
-            <button
-              type="button"
-              onClick={async () => {
-                if (confirm("¿Borrar categoría? Sus movimientos quedan como “Sin categoría”.")) {
-                  await deleteCategory(initial.id!);
-                  onClose();
-                }
-              }}
-              aria-label="Borrar"
-              className="press grid size-[3.25rem] shrink-0 place-items-center rounded-2xl bg-inset text-exp"
-            >
-              <TrashIcon width={20} height={20} />
-            </button>
-          )}
-          <button disabled={!name.trim()} className="press flex-1 rounded-2xl bg-accent py-3.5 font-semibold text-accent-ink disabled:opacity-40">
-            Guardar
-          </button>
-        </div>
-      </form>
-    </Sheet>
   );
 }

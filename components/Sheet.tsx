@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { XIcon } from "./Icons";
 
 export function Sheet({
@@ -69,8 +70,9 @@ export function Sheet({
     };
   }, [open]);
 
-  if (!open) return null;
-  return (
+  if (!open || typeof document === "undefined") return null;
+  // Portal al body: así una hoja puede abrirse encima de otra (ej: crear categoría mientras cargás)
+  return createPortal(
     <div
       className="fixed inset-x-0 top-0 z-50 flex h-dvh items-end justify-center sm:items-center"
       // Con teclado: la hoja ocupa el área visible, respetando la barra de estado del iPhone
@@ -97,5 +99,7 @@ export function Sheet({
         <div className="grid grid-cols-[minmax(0,1fr)]">{children}</div>
       </div>
     </div>
+  ,
+    document.body,
   );
 }

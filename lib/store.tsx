@@ -118,7 +118,8 @@ interface Store {
   deletePurchase: (id: string) => Promise<void>;
   settleSplit: (id: string, settled: boolean) => Promise<void>;
   deleteRecurring: (id: string) => Promise<void>;
-  saveCategory: (c: Partial<Category> & Pick<Category, "kind" | "name">) => Promise<void>;
+  /** Crea o edita una categoría; devuelve su id (o null si falló) */
+  saveCategory: (c: Partial<Category> & Pick<Category, "kind" | "name">) => Promise<string | null>;
   deleteCategory: (id: string) => Promise<void>;
   signOut: () => Promise<void>;
   toast: (msg: string) => void;
@@ -732,19 +733,30 @@ export function DataProvider({
         emoji: c.emoji || "🏷️",
         color: c.color || "#8b5cf6",
       };
+      const id = c.id ?? uid();
       const { error } = c.id
-        ? await db.from("categories").update(body).eq("id", c.id)
-        : await db.from("categories").insert({ ...body, sort: categories.length });
-      if (error) return toast(error.message);
-      await load(month);
+        ? await db.from("categories").update(body).eq("id", id)
+        : await db.from("categories").insert({ id, ...body, sort: categories.length });
+      if (error) {
+        toast(error.message);
+        return null;
+      }
+      // Actualización local (sin recargar todo): la carga en curso no se interrumpe
+      setCategories((prev) =>
+        c.id ? prev.map((x) => (x.id === id ? { ...x, ...body } : x)) : [...prev, { id, ...body, sort: prev.length }],
+      );
+      toast(c.id ? "Categoría actualizada ✓" : `Categoría “${body.name}” creada ✓`);
+      return id;
     },
-    [categories.length, load, month, toast],
+    [categories.length, toast],
   );
 
   const deleteCategory = useCallback(
     async (id: string) => {
       const { error } = await supabase().from("categories").delete().eq("id", id);
       if (error) return toast(error.message);
+      setCategories((prev) => prev.filter((x) => x.id !== id));
+      // Los movimientos de esa categoría pasan a "Sin categoría" en la base: refrescamos
       await load(month);
     },
     [load, month, toast],
