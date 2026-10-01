@@ -3,26 +3,34 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useStore } from "@/lib/store";
+import { useShared } from "@/lib/sharedStore";
 import { monthStats } from "@/lib/stats";
+import { LAUNCH_DATE } from "@/lib/launch";
 import { compact, money, moneyRound, monthLabel } from "@/lib/format";
 import { MonthSwitcher } from "@/components/MonthSwitcher";
 import { EyeToggle } from "@/components/EyeToggle";
 import { PageHeader } from "@/components/PageHeader";
-import { DayBars, Donut } from "@/components/charts";
+import { DayBars, Donut, StackBar } from "@/components/charts";
 import { TxRow } from "@/components/TxRow";
 import { ArrowUpRight } from "@/components/Icons";
-import { useShared } from "@/lib/sharedStore";
 
 export default function Home() {
-  const { month, txs, prevTxs, categories, recurring, loading, openSheet, splits } = useStore();
-  const { myNet } = useShared();
+  const { month, txs, prevTxs, categories, recurring, loading, openSheet, splits, cards } = useStore();
+  const { myNet, groups } = useShared();
   // Saldo con otras personas: compras divididas + cuentas compartidas
   const owed = Math.round((splits.filter((x) => !x.settled_on).reduce((a, x) => a + x.amount, 0) + myNet) * 100) / 100;
+  const sharedTxIds = useMemo(() => new Set(groups.map((g) => g.transaction_id).filter((x): x is string => !!x)), [groups]);
   const s = useMemo(
-    () => monthStats(month, txs, prevTxs, categories, recurring),
-    [month, txs, prevTxs, categories, recurring],
+    () =>
+      monthStats(month, txs, prevTxs, categories, recurring, {
+        trackingStart: LAUNCH_DATE,
+        sharedTxIds,
+        cardName: (id) => cards.find((c) => c.id === id)?.name,
+      }),
+    [month, txs, prevTxs, categories, recurring, sharedTxIds, cards],
   );
   const monthName = monthLabel(month).split(" ")[0].toLowerCase();
+  const daysLeft = s.dim - s.elapsed;
 
   return (
     <div className="grid gap-4">
@@ -40,14 +48,16 @@ export default function Home() {
         <Empty onAdd={() => openSheet()} month={month} />
       ) : (
         <>
-          {/* Hero */}
+          {/* Hero: lo gastado, desglosado, y lo que viene */}
           <section className="glass rise relative overflow-hidden rounded-[28px] p-5" style={{ animationDelay: "40ms" }}>
             <div
               aria-hidden
               className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full opacity-40 blur-3xl"
               style={{ background: "radial-gradient(closest-side, var(--exp), transparent)" }}
             />
-            <p className="relative text-sm text-muted">Gastaste en {monthName}</p>
+            <p className="relative text-sm text-muted">
+              {s.isCurrent ? `Gastaste en ${monthName}, hasta hoy` : `Gastaste en ${monthName}`}
+            </p>
             <div className="relative mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
               <span className="num text-[clamp(2.25rem,11vw,3.25rem)] font-semibold leading-none">{money(s.spent)}</span>
               {s.deltaVsPrev !== null && (
@@ -55,44 +65,98 @@ export default function Home() {
                   className={`inline-flex items-center gap-0.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
                     s.deltaVsPrev > 0 ? "bg-exp/15 text-exp" : "bg-inc/15 text-inc"
                   }`}
+                  title="Comparado con los mismos días del mes anterior"
                 >
                   <ArrowUpRight width={12} height={12} className={s.deltaVsPrev > 0 ? "" : "rotate-90"} />
-                  {Math.abs(Math.round(s.deltaVsPrev * 100))}% vs mes ant.
+                  {Math.abs(Math.round(s.deltaVsPrev * 100))}% vs mismo día del mes ant.
                 </span>
               )}
             </div>
-            <div className="relative mt-6">
-              <DayBars values={s.perDay} today={s.isCurrent ? s.elapsed : undefined} />
-              <div className="mt-2 flex justify-between text-[10px] text-muted">
+
+            {/* Desglose sin solapamientos */}
+            {s.spent > 0 && (
+              <div className="relative mt-5 grid gap-2.5">
+                <StackBar parts={s.breakdown.map((b) => ({ key: b.key, value: b.total, color: b.color }))} />
+                <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                  {s.breakdown
+                    .filter((b) => b.total > 0)
+                    .map((b) => (
+                      <li key={b.key} className="flex items-center gap-1.5">
+                        <span className="size-2 shrink-0 rounded-full" style={{ background: b.color }} />
+                        <span className="text-muted">{b.label}</span>
+                        <span className="num ml-auto font-semibold">{compact(b.total)}</span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="relative mt-5">
+              <DayBars values={s.perDay} planned={s.perDayPlanned} today={s.isCurrent ? s.elapsed : undefined} />
+              <div className="relative mt-2 flex justify-between text-[10px] text-muted">
                 <span>1</span>
-                {s.isCurrent && <span className="font-semibold text-fg">hoy {s.elapsed}</span>}
+                {s.isCurrent && s.elapsed > 2 && s.elapsed < s.dim - 1 && (
+                  <span
+                    className="absolute -translate-x-1/2 font-semibold text-fg"
+                    style={{ left: `${((s.elapsed - 0.5) / s.dim) * 100}%` }}
+                  >
+                    hoy
+                  </span>
+                )}
                 <span>{s.dim}</span>
               </div>
             </div>
-            {s.isCurrent && s.projected > s.spent + 1 && (
+
+            {s.isCurrent && (s.committed > 0 || s.projected !== null) && (
               <p className="relative mt-4 rounded-2xl bg-inset px-3.5 py-2.5 text-sm text-muted">
-                A este ritmo cerrás el mes en <b className="num text-fg">{moneyRound(s.projected)}</b>
-                {s.upcomingExpense > 0 && <> · incluye {compact(s.upcomingExpense)} de fijos por venir</>}.
+                {s.committed > 0 && (
+                  <>
+                    Ya tenés <b className="num text-fg">{money(s.committed)}</b> comprometidos para lo que queda del mes
+                    {s.projected === null ? "." : " · "}
+                  </>
+                )}
+                {s.projected !== null && (
+                  <>
+                    con tu ritmo de día a día, cerrarías en <b className="num text-fg">{moneyRound(s.projected)}</b>.
+                  </>
+                )}
               </p>
             )}
           </section>
 
           {/* Métricas */}
           <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Stat label="Ingresos" value={moneyRound(s.earned)} tone="text-inc" delay={80} hint={s.upcomingIncome > 0 ? `+${compact(s.upcomingIncome)} por cobrar` : undefined} />
             <Stat
-              label="Te queda"
-              value={moneyRound(s.balance)}
-              tone={s.balance < 0 ? "text-exp" : ""}
-              delay={120}
-              hint={s.savingsRate !== null ? `${Math.round(s.savingsRate * 100)}% de tus ingresos` : "sin ingresos cargados"}
+              label="Ingresos"
+              value={moneyRound(s.earned)}
+              tone="text-inc"
+              delay={80}
+              hint={s.toCollect > 0 ? `+${compact(s.toCollect)} por cobrar` : s.isCurrent ? "cobrados hasta hoy" : undefined}
             />
-            <Stat label="Por día" value={moneyRound(s.dailyAvg)} delay={160} hint="gastos variables, sin fijos" />
             <Stat
-              label="Fijos"
-              value={`${s.spent > 0 ? Math.round((s.fixedSpent / s.spent) * 100) : 0}%`}
+              label={s.isCurrent ? "Libre a fin de mes" : "Te quedó"}
+              value={moneyRound(s.isCurrent ? s.freeAtEnd : s.balanceNow)}
+              tone={(s.isCurrent ? s.freeAtEnd : s.balanceNow) < 0 ? "text-exp" : ""}
+              delay={120}
+              hint={
+                s.isCurrent
+                  ? "ingresos − gastos − lo comprometido"
+                  : s.savingsRate !== null
+                    ? `${Math.round(s.savingsRate * 100)}% de tus ingresos`
+                    : undefined
+              }
+            />
+            <Stat
+              label="Ritmo diario"
+              value={s.dailyRate !== null ? moneyRound(s.dailyRate) : "—"}
+              delay={160}
+              hint={s.dailyRate !== null ? "promedio del día a día" : `se calcula desde el día 3`}
+            />
+            <Stat
+              label={s.isCurrent ? "Comprometido" : "Fijos y tarjeta"}
+              value={moneyRound(s.isCurrent ? s.committed : s.breakdown[1].total + s.breakdown[2].total)}
               delay={200}
-              hint={`${compact(s.fixedSpent)} fijos · ${compact(s.variableSpent)} variables${s.cardSpent > 0 ? ` · ${compact(s.cardSpent)} con tarjeta` : ""}`}
+              hint={s.isCurrent ? (daysLeft > 0 ? `en los próximos ${daysLeft} días` : "nada más este mes") : "del total del mes"}
             />
           </section>
 
@@ -106,22 +170,22 @@ export default function Home() {
             </Link>
           )}
 
-          {/* Fijos que faltan */}
-          {s.upcoming.length > 0 && (
+          {/* Lo que viene este mes */}
+          {s.scheduled.length > 0 && (
             <section className="glass rise rounded-[28px] p-4" style={{ animationDelay: "220ms" }}>
               <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-sm font-semibold">Todavía por venir</h2>
+                <h2 className="text-sm font-semibold">Lo que viene este mes</h2>
                 <Link href="/fijos" className="text-xs text-muted">Ver fijos</Link>
               </div>
-              <ul className="grid gap-2">
-                {s.upcoming.map((r) => (
-                  <li key={r.id} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="min-w-0 truncate">
-                      <span className="mr-2 text-muted">día {r.day}</span>
-                      {r.name}
-                    </span>
-                    <span className={`num shrink-0 font-medium ${r.kind === "income" ? "text-inc" : ""}`}>
-                      {r.kind === "income" ? "+" : "−"}{money(r.amount)}
+              <ul className="grid gap-2.5">
+                {s.scheduled.map((x) => (
+                  <li key={x.key} className="flex items-center gap-3 text-sm">
+                    <span className="num w-11 shrink-0 text-xs text-muted">día {x.day}</span>
+                    <span className="shrink-0">{x.emoji}</span>
+                    <span className="min-w-0 flex-1 truncate">{x.label}</span>
+                    <span className={`num shrink-0 font-medium ${x.kind === "income" ? "text-inc" : ""}`}>
+                      {x.kind === "income" ? "+" : "−"}
+                      {money(x.amount)}
                     </span>
                   </li>
                 ))}
@@ -132,7 +196,7 @@ export default function Home() {
           {/* Por categoría */}
           {s.expenseCats.length > 0 && (
             <section className="glass rise rounded-[28px] p-5" style={{ animationDelay: "260ms" }}>
-              <h2 className="mb-4 text-sm font-semibold">En qué gastás</h2>
+              <h2 className="mb-4 text-sm font-semibold">En qué gastaste</h2>
               <div className="flex items-center gap-5">
                 <Donut
                   slices={s.expenseCats}
@@ -158,10 +222,7 @@ export default function Home() {
               <ul className="mt-5 grid gap-0.5">
                 {s.expenseCats.map((c) => (
                   <li key={c.id ?? "none"}>
-                    <Link
-                      href={c.id ? `/movimientos?cat=${c.id}` : "/movimientos"}
-                      className="press block rounded-2xl px-2 py-2.5 hover:bg-surface"
-                    >
+                    <Link href={c.id ? `/movimientos?cat=${c.id}` : "/movimientos"} className="press block rounded-2xl px-2 py-2.5 hover:bg-surface">
                       <div className="flex items-center gap-3">
                         <span className="grid size-9 shrink-0 place-items-center rounded-xl text-lg" style={{ background: `color-mix(in srgb, ${c.color} 22%, transparent)` }}>
                           {c.emoji}
@@ -188,7 +249,7 @@ export default function Home() {
           {/* De dónde viene */}
           {s.incomeCats.length > 0 && (
             <section className="glass rise rounded-[28px] p-5" style={{ animationDelay: "280ms" }}>
-              <h2 className="mb-3 text-sm font-semibold">De dónde viene</h2>
+              <h2 className="mb-3 text-sm font-semibold">De dónde vino la plata</h2>
               <ul className="grid gap-2.5">
                 {s.incomeCats.map((c) => (
                   <li key={c.id ?? "none"} className="flex items-center gap-3 text-sm">
@@ -201,16 +262,18 @@ export default function Home() {
             </section>
           )}
 
-          {/* Últimos */}
-          <section className="rise" style={{ animationDelay: "300ms" }}>
-            <div className="mb-1 flex items-center justify-between px-1">
-              <h2 className="text-sm font-semibold">Últimos movimientos</h2>
-              <Link href="/movimientos" className="text-xs text-muted">Ver todos</Link>
-            </div>
-            <div className="grid">
-              {txs.slice(0, 5).map((t) => <TxRow key={t.id} tx={t} showDate />)}
-            </div>
-          </section>
+          {/* Últimos (solo lo que ya pasó) */}
+          {s.recent.length > 0 && (
+            <section className="rise" style={{ animationDelay: "300ms" }}>
+              <div className="mb-1 flex items-center justify-between px-1">
+                <h2 className="text-sm font-semibold">Últimos movimientos</h2>
+                <Link href="/movimientos" className="text-xs text-muted">Ver todos</Link>
+              </div>
+              <div className="grid">
+                {s.recent.slice(0, 5).map((t) => <TxRow key={t.id} tx={t} showDate />)}
+              </div>
+            </section>
+          )}
         </>
       )}
     </div>

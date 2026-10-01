@@ -47,6 +47,8 @@ export function Shell({ children }: { children: ReactNode }) {
           {pendingCount} movimiento{pendingCount > 1 ? "s" : ""} esperando conexión
         </div>
       )}
+      {/* Fondo detrás de la barra de estado del iPhone (el contenido no pasa por debajo de la hora) */}
+      <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-30 h-[env(safe-area-inset-top)] bg-bg/85 backdrop-blur-xl" />
       {prelaunch && !blocked && <PrelaunchBanner />}
       {blocked ? <PrelaunchCard /> : children}
 

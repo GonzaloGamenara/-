@@ -37,17 +37,39 @@ export function Donut({ slices, size = 168, center }: { slices: CatSlice[]; size
   );
 }
 
-/** Barras de gasto por día del mes; resalta hoy y atenúa los días que faltan. */
-export function DayBars({ values, today, height = 64 }: { values: number[]; today?: number; height?: number }) {
-  const max = Math.max(...values, 1);
+/** Barras por día: lo gastado (sólido) y lo programado para días que vienen (tenue, con borde). */
+export function DayBars({
+  values,
+  planned,
+  today,
+  height = 64,
+}: {
+  values: number[];
+  planned?: number[];
+  today?: number;
+  height?: number;
+}) {
+  const max = Math.max(...values, ...(planned ?? []), 1);
   return (
     <div className="flex items-end gap-[2px]" style={{ height }} role="img" aria-label="Gasto por día del mes">
       {values.map((v, i) => {
-        const isToday = today === i + 1;
-        const future = today !== undefined && i + 1 > today;
+        const day = i + 1;
+        const isToday = today === day;
+        const plan = planned?.[i] ?? 0;
+        const future = today !== undefined && day > today;
+        if (future && plan > 0) {
+          return (
+            <div
+              key={i}
+              className="flex-1 rounded-t-[4px] rounded-b-[2px] border border-dashed border-fg/40"
+              title={`Día ${day}: ${compact(plan)} programado`}
+              style={{ height: `${Math.max((plan / max) * 100, 10)}%` }}
+            />
+          );
+        }
         if (v <= 0) {
           return (
-            <div key={i} className="flex-1" title={`Día ${i + 1}: sin gastos`}>
+            <div key={i} className="flex-1" title={`Día ${day}: sin gastos`}>
               <div className="mx-auto size-[3px] rounded-full bg-fg" style={{ opacity: future ? 0.12 : 0.3 }} />
             </div>
           );
@@ -56,16 +78,30 @@ export function DayBars({ values, today, height = 64 }: { values: number[]; toda
           <div
             key={i}
             className="flex-1 rounded-t-[4px] rounded-b-[2px]"
-            title={`Día ${i + 1}: ${compact(v)}`}
+            title={`Día ${day}: ${compact(v)}`}
             style={{
               height: `${Math.max((v / max) * 100, 10)}%`,
-              background: isToday ? "var(--accent)" : "var(--fg)",
+              background: isToday ? "var(--accent-2)" : "var(--fg)",
               opacity: isToday ? 1 : 0.6,
               transition: "height .5s ease",
             }}
           />
         );
       })}
+    </div>
+  );
+}
+
+/** Barra apilada (partes de un total) con colores por grupo. */
+export function StackBar({ parts }: { parts: { key: string; value: number; color: string }[] }) {
+  const total = parts.reduce((a, p) => a + p.value, 0) || 1;
+  return (
+    <div className="flex h-2.5 w-full gap-[3px] overflow-hidden rounded-full">
+      {parts
+        .filter((p) => p.value > 0)
+        .map((p) => (
+          <div key={p.key} className="h-full rounded-full" style={{ width: `${(p.value / total) * 100}%`, background: p.color, transition: "width .5s ease" }} />
+        ))}
     </div>
   );
 }

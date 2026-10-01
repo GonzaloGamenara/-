@@ -3,10 +3,9 @@
 import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { dayLabel, money } from "@/lib/format";
+import { dayLabel, money, todayISO } from "@/lib/format";
 import { mine } from "@/lib/types";
 import { MonthSwitcher } from "@/components/MonthSwitcher";
-import { EyeToggle } from "@/components/EyeToggle";
 import { PageHeader } from "@/components/PageHeader";
 import { TxRow } from "@/components/TxRow";
 import { SearchIcon, XIcon } from "@/components/Icons";
@@ -56,13 +55,16 @@ function Movimientos() {
     return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0]));
   }, [filtered]);
 
-  const spent = filtered.filter((t) => t.kind === "expense").reduce((a, t) => a + mine(t), 0);
+  const today = todayISO();
+  // Lo programado (fecha futura: cuotas/resúmenes de tarjeta) no cuenta como gastado todavía
+  const spent = filtered.filter((t) => t.kind === "expense" && t.occurred_on <= today).reduce((a, t) => a + mine(t), 0);
+  const programmed = filtered.filter((t) => t.kind === "expense" && t.occurred_on > today).reduce((a, t) => a + mine(t), 0);
   const earned = filtered.filter((t) => t.kind === "income").reduce((a, t) => a + t.amount, 0);
   const hasFilters = kind !== "all" || !!catFilter || !!q;
 
   return (
     <div className="grid gap-3">
-      <PageHeader title="Movimientos" right={<div className="flex items-center gap-1.5"><EyeToggle /><MonthSwitcher /></div>} />
+      <PageHeader title="Movimientos" right={<MonthSwitcher />} />
 
       <label className="rise flex items-center gap-2 rounded-2xl border border-line bg-surface px-3.5 py-2.5 focus-within:border-accent2" style={{ animationDelay: "40ms" }}>
         <SearchIcon width={18} height={18} className="shrink-0 text-muted" />
@@ -131,13 +133,17 @@ function Movimientos() {
             <span>{filtered.length} {filtered.length === 1 ? "movimiento" : "movimientos"}</span>
             {spent > 0 && <span>Gastos <b className="num text-fg">{money(spent)}</b></span>}
             {earned > 0 && <span>Ingresos <b className="num text-inc">{money(earned)}</b></span>}
+            {programmed > 0 && <span>Programado <b className="num text-fg">{money(programmed)}</b></span>}
           </p>
           {groups.map(([day, items]) => {
             const dayTotal = items.reduce((a, t) => a + signed(t), 0);
             return (
-              <section key={day} className="rise">
+              <section key={day} className={`rise ${day > today ? "opacity-60" : ""}`}>
                 <div className="flex items-center justify-between px-2 pb-0.5 pt-3 text-xs text-muted">
-                  <span className="font-semibold capitalize">{dayLabel(day)}</span>
+                  <span className="font-semibold capitalize">
+                    {day > today && <span className="mr-1.5 rounded-full bg-inset px-2 py-0.5 normal-case text-fg/80">Programado</span>}
+                    {dayLabel(day)}
+                  </span>
                   {items.length > 1 && <span className="num">{dayTotal < 0 ? "−" : "+"}{money(Math.abs(dayTotal))}</span>}
                 </div>
                 {items.map((t) => <TxRow key={t.id} tx={t} />)}
