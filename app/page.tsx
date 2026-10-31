@@ -15,6 +15,7 @@ import { TxRow } from "@/components/TxRow";
 import { ArrowUpRight } from "@/components/Icons";
 import { HomeShortcuts } from "@/components/HomeShortcuts";
 import { TechosCard } from "@/components/Techos";
+import { RachaBar } from "@/components/Racha";
 
 export default function Home() {
   const { month, txs, prevTxs, categories, recurring, loading, openSheet, splits, cards } = useStore();
@@ -37,6 +38,8 @@ export default function Home() {
   return (
     <div className="grid gap-4">
       <PageHeader title="Resumen" right={<div className="flex items-center gap-1.5"><EyeToggle /><MonthSwitcher /></div>} />
+
+      <RachaBar />
 
       {loading && txs.length === 0 ? (
         <div className="grid gap-4">

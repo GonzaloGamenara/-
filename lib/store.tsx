@@ -135,6 +135,9 @@ interface Store {
   toggleHideAmounts: () => void;
   /** Recarga todo (después de cambios hechos fuera del store) */
   reload: () => Promise<void>;
+  /** Sube cada vez que cargás algo a mano (lo escucha la racha); los fijos e importaciones no cuentan */
+  activity: number;
+  markActivity: () => void;
 }
 
 export interface SheetState {
@@ -200,6 +203,8 @@ export function DataProvider({
   children: ReactNode;
 }) {
   const [alias, setAlias] = useState(initialAlias);
+  const [activity, setActivity] = useState(0);
+  const markActivity = useCallback(() => setActivity((n) => n + 1), []);
   const [hideAmounts, setHideAmounts] = useState(() => {
     const v = typeof window !== "undefined" && loadHidden();
     setHidden(!!v);
@@ -470,6 +475,7 @@ export function DataProvider({
           else setSplits((p) => [...rows, ...p]);
         }
         toast(`${row.kind === "expense" ? "Gasto" : "Ingreso"} guardado ✓${where}`);
+        markActivity();
         return true;
       }
       if (others.length) {
@@ -481,6 +487,7 @@ export function DataProvider({
         setAllTxs((p) => p.map((x) => (x.id === row.id ? { ...x, pending: true } : x)));
         persistQueue([...readJSON<Transaction[]>(queueKey(userId), []), row]);
         toast("Guardado sin conexión · se sube solo al volver internet");
+        markActivity();
         return true;
       } else {
         setAllTxs((p) => p.filter((x) => x.id !== row.id));
@@ -488,7 +495,7 @@ export function DataProvider({
         return false;
       }
     },
-    [userId, persistQueue, toast],
+    [userId, persistQueue, toast, markActivity],
   );
 
   const updateTx = useCallback(
@@ -661,10 +668,11 @@ export function DataProvider({
             ? `Compra en ${purchase.installments} cuotas guardada ✓ (${n} por pagar)`
             : `Compra guardada ✓ · se paga el ${Number(rows[0]?.occurred_on.slice(8, 10))}/${Number(rows[0]?.occurred_on.slice(5, 7))}`,
       );
+      if (!input.id) markActivity();
       await load(monthRef.current);
       return true;
     },
-    [cards, splits, load, toast],
+    [cards, splits, load, toast, markActivity],
   );
 
   const deletePurchase = useCallback(
@@ -821,6 +829,8 @@ export function DataProvider({
     reload,
     hideAmounts,
     toggleHideAmounts,
+    activity,
+    markActivity,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

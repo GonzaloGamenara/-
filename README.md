@@ -9,6 +9,7 @@ PWA para anotar gastos e ingresos en segundos. Next.js 16 · React 19 · Tailwin
 - Resumen del mes: gastado, ingresos, balance, proyección a fin de mes, fijos vs variables, dona por categoría, comparación con el mes anterior.
 - Funciona offline: lo que anotás sin conexión se sube solo al volver internet.
 - Techos por categoría o grupo: mensual, semanal, máximo por movimiento y días permitidos. Al cargar te dice cuánto te queda y avisa (sin bloquear) si te acercás o te pasás; las compras con tarjeta cuentan en la fecha de compra. Cada mes queda una foto con los techos que regían.
+- Racha de carga con fueguito animado (SVG puro): suma un día cuando cargás algo a mano o marcás "Hoy no gasté"; calendario, récord e hitos.
 - Patrimonio: cuentas, CEDEARs, fondos y otros; los precios de los CEDEARs y el dólar MEP se actualizan solos, y cada mes queda la foto para ver la evolución.
 - Importar desde un archivo (movimientos, correcciones, patrimonio) con vista previa y sin duplicar.
 - Exporta para tu agente de IA (Markdown + JSON) y a CSV. Instalable en el celular.

@@ -41,7 +41,7 @@ const isMissing = (e: { code?: string; message?: string } | null) =>
   !!e && (e.code === "42P01" || e.code === "PGRST205" || /does not exist|could not find/i.test(e.message ?? ""));
 
 export function SharedProvider({ children }: { children: ReactNode }) {
-  const { toast, reload } = useStore();
+  const { toast, reload, markActivity } = useStore();
   const [ready, setReady] = useState(false);
   const [missing, setMissing] = useState(false);
   const [groups, setGroups] = useState<SharedGroup[]>([]);
@@ -205,9 +205,10 @@ export function SharedProvider({ children }: { children: ReactNode }) {
         return false;
       }
       await syncMyShare(e.group_id);
+      if (!e.id) markActivity();
       return true;
     },
-    [syncMyShare, toast],
+    [syncMyShare, toast, markActivity],
   );
 
   const deleteExpense = useCallback(

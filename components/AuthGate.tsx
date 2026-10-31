@@ -6,6 +6,7 @@ import { isConfigured, supabase } from "@/lib/supabase";
 import { DataProvider } from "@/lib/store";
 import { SharedProvider } from "@/lib/sharedStore";
 import { TechosProvider } from "@/lib/techosStore";
+import { RachaProvider } from "@/lib/rachaStore";
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -32,7 +33,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
       initialAlias={(session.user.user_metadata?.alias as string | undefined) ?? ""}
     >
       <SharedProvider>
-        <TechosProvider>{children}</TechosProvider>
+        <TechosProvider>
+          <RachaProvider>{children}</RachaProvider>
+        </TechosProvider>
       </SharedProvider>
     </DataProvider>
   );
