@@ -1,4 +1,4 @@
-import type { Category, Kind, Recurring, Transaction } from "./types";
+import type { Card, Category, Kind, Recurring, Transaction } from "./types";
 import { parseISO } from "./format";
 
 /**
@@ -24,7 +24,8 @@ import { parseISO } from "./format";
  *     { "buscar": { "fecha": "2026-10-01", "monto": -35000, "nota": "comision" }, "borrar": true, "motivo": "Repetido" },
  *     { "buscar": { "fecha": "2026-10-02", "monto": -16830 }, "categoria": "Delivery", "nota": "Subway" }
  *   ],
- *   "fusionar_categorias": [{ "de": "Uber", "a": "Transporte" }]
+ *   "fusionar_categorias": [{ "de": "Uber", "a": "Transporte" }],
+ *   "tarjetas": [{ "nombre": "Visa Galicia", "dia_de_pago": 9 }]
  * "buscar" tiene que encontrar exactamente un movimiento (fecha exacta, monto con
  * signo y, si se pasan, un texto que contenga la nota y/o el nombre de su categoría).
  */
@@ -59,11 +60,17 @@ export interface ImportMerge {
   a: string;
 }
 
+export interface ImportCard {
+  nombre: string;
+  dia_de_pago: number;
+}
+
 export interface ImportFile {
   categorias: ImportCategory[];
   movimientos: ImportRow[];
   cambios: ImportChange[];
   fusionar: ImportMerge[];
+  tarjetas: ImportCard[];
 }
 
 export type Action = "nuevo" | "repetido" | "fijo";
@@ -99,7 +106,10 @@ export function parseImport(text: string): ImportFile {
   const raw = Array.isArray(obj.movimientos) ? obj.movimientos : [];
   const rawChanges = Array.isArray(obj.cambios) ? obj.cambios : [];
   const rawMerges = Array.isArray(obj.fusionar_categorias) ? obj.fusionar_categorias : [];
-  if (!raw.length && !rawChanges.length && !rawMerges.length) throw new Error("No encontré “movimientos” ni “cambios” para aplicar");
+  const rawCards = Array.isArray(obj.tarjetas) ? obj.tarjetas : [];
+  if (!raw.length && !rawChanges.length && !rawMerges.length && !rawCards.length) {
+    throw new Error("No encontré “movimientos” ni “cambios” para aplicar");
+  }
   const movimientos: ImportRow[] = [];
   raw.forEach((r, i) => {
     const x = r as Partial<ImportRow>;
@@ -145,7 +155,13 @@ export function parseImport(text: string): ImportFile {
   const fusionar = rawMerges
     .map((m) => m as Partial<ImportMerge>)
     .filter((m): m is ImportMerge => typeof m.de === "string" && typeof m.a === "string" && !!m.de.trim() && !!m.a.trim());
-  return { categorias, movimientos, cambios, fusionar };
+  const tarjetas = rawCards
+    .map((c) => c as Partial<ImportCard>)
+    .filter(
+      (c): c is ImportCard =>
+        typeof c.nombre === "string" && Number.isInteger(c.dia_de_pago) && c.dia_de_pago! >= 1 && c.dia_de_pago! <= 31,
+    );
+  return { categorias, movimientos, cambios, fusionar, tarjetas };
 }
 
 const daysBetween = (a: string, b: string) => Math.abs(parseISO(a).getTime() - parseISO(b).getTime()) / 86_400_000;
@@ -302,6 +318,14 @@ export function planChanges(file: ImportFile, existing: Transaction[], categorie
     if (change.nota !== undefined) patch.note = change.nota || null;
     if (change.fecha) patch.occurred_on = change.fecha;
     if (change.monto !== undefined) patch.amount = change.monto;
+    // Si ya está como pide el archivo (por ejemplo, un archivo aplicado dos veces), no hay nada que hacer
+    const same =
+      !change.borrar &&
+      !newCategory &&
+      (Object.keys(patch) as (keyof typeof patch)[]).every((k) =>
+        k === "amount" ? close(Number(target.amount), Number(patch.amount), 0) : (target[k] ?? null) === (patch[k] ?? null),
+      );
+    if (same) return { ...base, target, problem: "Ya está así", patch: {}, category, newCategory, include: false };
     return {
       ...base,
       target,
@@ -325,5 +349,19 @@ export function planMerges(file: ImportFile, categories: Category[]): PlannedMer
       to,
       include: !!from && !!to && from.id !== to.id,
     };
+  });
+}
+
+export interface PlannedCard {
+  key: number;
+  card: Card | null;
+  change: ImportCard;
+  include: boolean;
+}
+
+export function planCards(file: ImportFile, cards: Card[]): PlannedCard[] {
+  return file.tarjetas.map((change, key) => {
+    const card = cards.find((c) => norm(c.name) === norm(change.nombre)) ?? null;
+    return { key, card, change, include: !!card && card.due_day !== change.dia_de_pago };
   });
 }

@@ -13,10 +13,12 @@ import {
   parseImport,
   planChanges,
   planImport,
+  planCards,
   planMerges,
   type Action,
   type ImportFile,
   type PlannedChange,
+  type PlannedCard,
   type PlannedMerge,
   type PlannedRow,
 } from "@/lib/importer";
@@ -31,12 +33,13 @@ const FILTERS: { id: Action | "todos"; label: string }[] = [
 
 export default function Importar() {
   const router = useRouter();
-  const { categories, recurring, needsMigration, reload, setMonth, toast } = useStore();
+  const { categories, recurring, cards, needsMigration, reload, saveCard, setMonth, toast } = useStore();
   const [text, setText] = useState("");
   const [file, setFile] = useState<ImportFile | null>(null);
   const [rows, setRows] = useState<PlannedRow[] | null>(null);
   const [changes, setChanges] = useState<PlannedChange[]>([]);
   const [merges, setMerges] = useState<PlannedMerge[]>([]);
+  const [cardChanges, setCardChanges] = useState<PlannedCard[]>([]);
   const [filter, setFilter] = useState<Action | "todos">("todos");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +67,7 @@ export default function Importar() {
       setRows(planImport(parsed, existing, recurring, categories));
       setChanges(planChanges(parsed, existing, categories));
       setMerges(planMerges(parsed, categories));
+      setCardChanges(planCards(parsed, cards));
       setFilter("todos");
     } catch (e) {
       setError((e as Error).message);
@@ -84,10 +88,13 @@ export default function Importar() {
   const toggleMerge = (key: number) =>
     setMerges((p) => p.map((m) => (m.key === key && m.from && m.to ? { ...m, include: !m.include } : m)));
 
+  const toggleCard = (key: number) => setCardChanges((p) => p.map((c) => (c.key === key && c.card ? { ...c, include: !c.include } : c)));
+
   const chosen = useMemo(() => rows?.filter((r) => r.include) ?? [], [rows]);
   const chosenChanges = changes.filter((c) => c.include && c.target);
   const chosenMerges = merges.filter((m) => m.include && m.from && m.to);
-  const total = chosen.length + chosenChanges.length + chosenMerges.length;
+  const chosenCards = cardChanges.filter((c) => c.include && c.card);
+  const total = chosen.length + chosenChanges.length + chosenMerges.length + chosenCards.length;
   const summary = useMemo(() => {
     const count = (a: Action) => rows?.filter((r) => r.action === a).length ?? 0;
     const sum = (k: "expense" | "income") =>
@@ -200,6 +207,9 @@ export default function Importar() {
         if (err) throw new Error(`No pude borrar la categoría “${m.from!.name}”: ${err.message}`);
       }
 
+      // 6. Tarjetas: día de pago (mueve sus suscripciones y cuotas de este mes en adelante)
+      for (const c of chosenCards) await saveCard({ ...c.card!, due_day: c.change.dia_de_pago });
+
       const dates = [...chosen.map((r) => r.row.fecha), ...chosenChanges.map((c) => c.change.fecha ?? c.target!.occurred_on)].sort();
       if (dates.length) setMonth(dates.at(-1)!.slice(0, 7));
       await reload();
@@ -208,6 +218,7 @@ export default function Importar() {
         chosenChanges.length + chosen.filter((r) => r.action === "fijo").length &&
           `${chosenChanges.length + chosen.filter((r) => r.action === "fijo").length} corregidos`,
         chosenMerges.length && `${chosenMerges.length} categorías unificadas`,
+        chosenCards.length && `${chosenCards.length} tarjeta${chosenCards.length > 1 ? "s" : ""}`,
       ].filter(Boolean);
       toast(`Listo ✓ ${parts.join(" · ")}`);
       router.push(dates.length ? "/movimientos" : "/ajustes");
@@ -273,7 +284,7 @@ export default function Importar() {
 
       {rows && (
         <>
-          {(changes.length > 0 || merges.length > 0) && (
+          {(changes.length > 0 || merges.length > 0 || cardChanges.length > 0) && (
             <section className="glass rise grid gap-2 rounded-3xl p-4">
               <div>
                 <h2 className="font-semibold">Correcciones</h2>
@@ -283,6 +294,11 @@ export default function Importar() {
                 {merges.map((m) => (
                   <li key={`m${m.key}`}>
                     <MergeRow m={m} onToggle={() => toggleMerge(m.key)} />
+                  </li>
+                ))}
+                {cardChanges.map((c) => (
+                  <li key={`t${c.key}`}>
+                    <CardRow c={c} onToggle={() => toggleCard(c.key)} />
                   </li>
                 ))}
                 {changes.map((c) => (
@@ -360,6 +376,7 @@ export default function Importar() {
                 setRows(null);
                 setChanges([]);
                 setMerges([]);
+                setCardChanges([]);
                 setError(null);
               }}
               disabled={busy}
@@ -485,7 +502,7 @@ function ChangeRow({ c, onToggle }: { c: PlannedChange; onToggle: () => void }) 
         </span>
         <span className="line-clamp-2 block text-xs text-muted">
           {dayLabel(c.change.buscar.fecha)} · <span className="num">{money(Math.abs(c.change.buscar.monto))}</span>
-          {edits.length > 0 && ` · ${edits.join(" · ")}`}
+          {edits.length > 0 && !c.problem && ` · ${edits.join(" · ")}`}
         </span>
         {(c.problem || c.change.motivo) && (
           <span className={`mt-0.5 line-clamp-2 block text-[11px] ${c.problem ? "text-amber-500" : "text-muted"}`}>
@@ -516,6 +533,33 @@ function MergeRow({ m, onToggle }: { m: PlannedMerge; onToggle: () => void }) {
           {ok
             ? `Todo lo de “${m.merge.de}” pasa a “${m.merge.a}” y se borra “${m.merge.de}”`
             : `No encontré la categoría “${m.from ? m.merge.a : m.merge.de}”`}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function CardRow({ c, onToggle }: { c: PlannedCard; onToggle: () => void }) {
+  const done = !!c.card && c.card.due_day === c.change.dia_de_pago;
+  return (
+    <button
+      onClick={onToggle}
+      disabled={!c.card}
+      aria-pressed={c.include}
+      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity hover:bg-surface ${c.include ? "" : "opacity-45"}`}
+    >
+      <Check on={c.include} />
+      <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">💳</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[15px] font-medium">
+          {c.change.nombre}: pago el día {c.card?.due_day ?? "?"} → {c.change.dia_de_pago}
+        </span>
+        <span className={`line-clamp-2 block text-xs ${c.card && !done ? "text-muted" : "text-amber-500"}`}>
+          {!c.card
+            ? `No encontré la tarjeta “${c.change.nombre}”`
+            : done
+              ? "Ya está así"
+              : "Mueve sus suscripciones y cuotas de este mes en adelante"}
         </span>
       </span>
     </button>
