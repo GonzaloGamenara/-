@@ -49,7 +49,7 @@ export function CategoryChips({
               }}
               onClick={() => (editMode ? setForm(c) : onChange(on ? null : c.id))}
               aria-pressed={on}
-              className={`press relative flex flex-col items-center gap-0.5 rounded-2xl border px-1 py-2 text-[11px] font-medium leading-tight ${
+              className={`press relative flex flex-col items-center gap-0.5 rounded-2xl border px-1 py-1.5 text-[11px] font-medium leading-tight ${
                 on && !editMode ? "border-transparent text-black" : editMode ? "border-dashed border-fg/30 bg-inset text-fg" : "border-line bg-inset text-fg"
               }`}
               style={on && !editMode ? { background: c.color } : undefined}

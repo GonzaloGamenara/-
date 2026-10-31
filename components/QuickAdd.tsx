@@ -7,9 +7,12 @@ import { installmentAmounts, nextPaymentPeriod } from "@/lib/cards";
 import { money, monthLabelCompact, toISO, todayISO } from "@/lib/format";
 import { Sheet } from "./Sheet";
 import { CategoryChips } from "./CategoryChips";
-import { BackspaceIcon, CardIcon, SplitIcon, TrashIcon } from "./Icons";
+import { BackspaceIcon, CardIcon, SplitIcon, TrashIcon, XIcon } from "./Icons";
 import { BudgetHint, useBudgetCheck } from "./Techos";
 import { completeNote, suggestCategory, useCategoryIndex } from "@/lib/autoCategoria";
+
+/** El relleno de abajo de la hoja (ver Sheet): el botón fijo lo cubre para no dejar ver lo de atrás */
+const SHEET_PAD = "(max(1.25rem, env(safe-area-inset-bottom)) + var(--ios-gap, 0px))";
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ",", "0", "⌫"] as const;
 type Mode = "expense" | "income";
@@ -176,8 +179,11 @@ export function QuickAdd() {
 
   return (
     <Sheet open onClose={closeSheet} tall>
-      {/* Modo */}
-      <div className="mb-4 flex items-center gap-2">
+      {/* Modo (con cerrar siempre a mano: en el iPhone la hoja ocupa casi toda la pantalla) */}
+      <div className="mb-3 flex items-center gap-2">
+        <button onClick={closeSheet} aria-label="Cerrar" className="press grid size-10 shrink-0 place-items-center rounded-full bg-inset text-muted">
+          <XIcon width={18} height={18} />
+        </button>
         <div className="grid flex-1 grid-cols-2 rounded-full bg-inset p-1 text-sm font-semibold">
           {MODES.map((m) => (
             <button
@@ -212,26 +218,14 @@ export function QuickAdd() {
         )}
       </div>
 
-      {!editing && mode === "expense" && (
-        <button
-          onClick={() => {
-            closeSheet();
-            router.push("/dividir?nueva=1");
-          }}
-          className="press -mt-2 mb-2 flex w-full items-center justify-center gap-1.5 py-1 text-xs font-medium text-accent2"
-        >
-          <SplitIcon width={14} height={14} /> ¿Lo pagaron entre varios? Dividir una cuenta
-        </button>
-      )}
-
       {/* Monto */}
-      <div className="mb-3 text-center">
+      <div className="mb-2 text-center">
         <div
           data-monto
           className={`num flex items-baseline justify-center gap-1 font-semibold transition-colors ${
             flash ? "text-accent2" : amount > 0 ? tone : "text-muted"
           }`}
-          style={{ fontSize: raw.length > 11 ? 40 : raw.length > 8 ? 52 : 64, lineHeight: 1.1 }}
+          style={{ fontSize: raw.length > 11 ? 38 : raw.length > 8 ? 46 : 56, lineHeight: 1.1 }}
         >
           <span className="text-[0.5em] opacity-70">$</span>
           {display(raw)}
@@ -244,7 +238,7 @@ export function QuickAdd() {
           maxLength={80}
           enterKeyHint="done"
           onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), noteRef.current?.blur())}
-          className="mx-auto mt-2 w-full max-w-xs rounded-full bg-transparent px-4 py-2 text-center text-[15px] transition-colors placeholder:text-muted/80 focus:bg-inset"
+          className="mx-auto mt-1 w-full max-w-xs rounded-full bg-transparent px-4 py-1.5 text-center text-[15px] transition-colors placeholder:text-muted/80 focus:bg-inset"
         />
         {completions.length > 0 && (
           <div className="hide-scroll -mx-5 mt-1.5 flex justify-center gap-1.5 overflow-x-auto px-5">
@@ -282,8 +276,8 @@ export function QuickAdd() {
         </div>
       )}
 
-      {/* Cómo pagaste (gasto o división) */}
-      {!editing && kind === "expense" && cards.length > 0 && (
+      {/* Cómo pagaste: efectivo, tarjeta o entre varios */}
+      {!editing && kind === "expense" && (
         <div className="mb-3 grid gap-2">
           <div className="hide-scroll -mx-5 flex gap-1.5 overflow-x-auto px-5 text-sm">
             <button
@@ -302,6 +296,17 @@ export function QuickAdd() {
                 {c.name}
               </button>
             ))}
+            {mode === "expense" && (
+              <button
+                onClick={() => {
+                  closeSheet();
+                  router.push("/dividir?nueva=1");
+                }}
+                className="press flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-line px-3.5 py-1.5 font-medium text-accent2"
+              >
+                <SplitIcon width={15} height={15} /> Entre varios
+              </button>
+            )}
           </div>
           {card && (
             <>
@@ -357,7 +362,7 @@ export function QuickAdd() {
         ))}
         <button
           onClick={() => (dateRef.current?.showPicker?.(), dateRef.current?.focus())}
-          className={`press relative rounded-full px-3.5 py-1.5 font-medium ${
+          className={`press relative shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 font-medium ${
             date !== todayISO() && date !== yesterday ? "bg-fg text-bg" : "bg-inset text-muted"
           }`}
         >
@@ -375,31 +380,33 @@ export function QuickAdd() {
           />
         </button>
         {!editing && (
-          <label className="ml-auto flex items-center gap-2 text-xs text-muted">
-            Seguir cargando
+          <label className="ml-auto flex shrink-0 items-center gap-2 whitespace-nowrap text-xs text-muted">
+            Cargar otro
             <input type="checkbox" checked={keepOpen} onChange={(e) => setKeepOpen(e.target.checked)} className="size-4" />
           </label>
         )}
       </div>
 
       {/* Teclado */}
-      <div className="mb-3 grid grid-cols-3 gap-2">
+      <div className="mb-2.5 grid grid-cols-3 gap-1.5">
         {KEYS.map((k) => (
           <button
             key={k}
             onClick={() => setRaw((r) => press(r, k))}
             aria-label={k === "⌫" ? "Borrar dígito" : k}
-            className="press num grid h-[52px] place-items-center rounded-2xl bg-inset text-2xl font-medium"
+            className="press num grid h-[48px] place-items-center rounded-2xl bg-inset text-2xl font-medium"
           >
             {k === "⌫" ? <BackspaceIcon width={24} height={24} /> : k}
           </button>
         ))}
       </div>
 
+      {/* En pantallas chicas la hoja scrollea: el botón de guardar queda siempre a la vista */}
+      <div className="sticky z-10 -mx-5 bg-bg px-5 pt-1" style={{ bottom: `calc(-1 * ${SHEET_PAD})`, paddingBottom: `calc${SHEET_PAD}`, marginBottom: `calc(-1 * ${SHEET_PAD})` }}>
       <button
         onClick={save}
         disabled={!valid || busy}
-        className={`press w-full rounded-2xl py-4 text-base font-semibold transition-opacity disabled:opacity-35 ${
+        className={`press w-full rounded-2xl py-3.5 text-base font-semibold transition-opacity disabled:opacity-35 ${
           mode === "income" ? "bg-inc text-on-inc" : "bg-exp text-on-exp"
         } ${needsConfirm && confirmed ? "ring-4 ring-exp/30" : ""}`}
       >
@@ -417,6 +424,7 @@ export function QuickAdd() {
                     : "Guardar en tarjeta"
                   : "Guardar gasto"}
       </button>
+      </div>
     </Sheet>
   );
 }

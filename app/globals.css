@@ -212,3 +212,7 @@ html, body { max-width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .fuego *, .fuego.encender .llama, .fuego.encender .onda { animation: none !important; }
 }
+
+/* Hojas: nunca tapan la barra de estado del iPhone, así siempre queda fondo para tocar y cerrar */
+.sheet-normal { max-height: min(88dvh, calc(100dvh - env(safe-area-inset-top) - 3rem)); }
+.sheet-tall { max-height: calc(100dvh - env(safe-area-inset-top) - 2.25rem); }
