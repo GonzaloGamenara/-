@@ -89,7 +89,7 @@ export async function fetchPrices(): Promise<Prices | null> {
 const isMissing = (e: { code?: string; message?: string } | null) =>
   !!e && (e.code === "42P01" || e.code === "PGRST205" || /does not exist|could not find the table/i.test(e.message ?? ""));
 
-/** Todo lo necesario para valuar el patrimonio (también lo usan el export y el asesor) */
+/** Todo lo necesario para valuar el patrimonio (también lo usa el export) */
 export async function loadPatrimonio(prices?: Prices) {
   const db = supabase();
   const today = todayISO();

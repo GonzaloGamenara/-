@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { compact } from "@/lib/format";
 import { loadPatrimonio } from "@/lib/patrimonio";
+import { ChevronRight } from "./Icons";
 
-/** Accesos de Inicio: tu patrimonio (con el último valor conocido) y el asesor */
+/** Acceso de Inicio a tu patrimonio (con el último valor conocido) */
 export function HomeShortcuts({ delay = 0 }: { delay?: number }) {
   const [net, setNet] = useState<number | null | undefined>(undefined);
 
@@ -20,21 +21,14 @@ export function HomeShortcuts({ delay = 0 }: { delay?: number }) {
   }, []);
 
   return (
-    <section className="grid grid-cols-2 gap-3">
-      <Link href="/patrimonio" className="glass press rise grid gap-1 rounded-3xl p-4" style={{ animationDelay: `${delay}ms` }}>
-        <span className="text-xs text-muted">🏦 Patrimonio</span>
-        <span className="num truncate text-lg font-semibold">{net === undefined ? "…" : net === null ? "Cargalo" : compact(net)}</span>
-        <span className="text-[11px] text-muted">{net == null ? "cuentas e inversiones" : "cuentas + inversiones"}</span>
-      </Link>
-      <Link
-        href="/asesor"
-        className="press rise relative grid gap-1 overflow-hidden rounded-3xl p-4 text-accent-ink"
-        style={{ animationDelay: `${delay + 40}ms`, background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}
-      >
-        <span className="text-xs opacity-80">✨ Asesor</span>
-        <span className="text-lg font-semibold leading-tight">Preguntale</span>
-        <span className="text-[11px] opacity-80">conoce todos tus números</span>
-      </Link>
-    </section>
+    <Link href="/patrimonio" className="glass press rise flex items-center gap-3 rounded-3xl px-4 py-3.5" style={{ animationDelay: `${delay}ms` }}>
+      <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">🏦</span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-medium">Patrimonio</span>
+        <span className="block truncate text-xs text-muted">{net == null ? "Cargá tus cuentas e inversiones" : "Cuentas + inversiones"}</span>
+      </span>
+      {net != null && <span className="num shrink-0 font-semibold">{compact(net)}</span>}
+      <ChevronRight width={18} height={18} className="shrink-0 text-muted" />
+    </Link>
   );
 }

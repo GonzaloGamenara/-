@@ -244,7 +244,7 @@ async function patrimonioSection() {
 const $ = (n: number) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n).replace(/ /g, " ");
 
 /** Markdown con contexto para que un agente entienda tus finanzas de un vistazo. */
-export function toMarkdown(d: Dataset, opts: { json?: boolean } = {}) {
+export function toMarkdown(d: Dataset) {
   const L: string[] = [];
   L.push(`# Mis finanzas personales (${d.periodo.desde} a ${d.periodo.hasta})`);
   L.push("");
@@ -321,13 +321,11 @@ export function toMarkdown(d: Dataset, opts: { json?: boolean } = {}) {
     L.push(
       `| ${t.fecha} | ${t.tipo} | ${$(t.monto_propio)} | ${$(t.monto_pagado)} | ${t.categoria} | ${t.detalle.replace(/\|/g, "/")} | ${t.origen} | ${t.tarjeta ?? "–"} | ${t.cuota ?? "–"} |`,
     );
-  if (opts.json !== false) {
-    L.push("");
-    L.push("## Datos completos (JSON)");
-    L.push("```json");
-    L.push(JSON.stringify(d, null, 1));
-    L.push("```");
-  }
+  L.push("");
+  L.push("## Datos completos (JSON)");
+  L.push("```json");
+  L.push(JSON.stringify(d, null, 1));
+  L.push("```");
   return L.join("\n");
 }
 
