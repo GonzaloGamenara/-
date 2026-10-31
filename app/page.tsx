@@ -15,6 +15,7 @@ import { TxRow } from "@/components/TxRow";
 import { ArrowUpRight } from "@/components/Icons";
 import { HomeShortcuts } from "@/components/HomeShortcuts";
 import { TechosCard } from "@/components/Techos";
+import { SubsAlert } from "@/components/SubsAlert";
 import { RachaBar } from "@/components/Racha";
 
 export default function Home() {
@@ -132,6 +133,7 @@ export default function Home() {
 
           {/* Techos: lo más accionable del mes, justo después del resumen */}
           <TechosCard delay={60} />
+          {s.isCurrent && <SubsAlert delay={80} />}
 
           {/* Métricas */}
           <section className="grid grid-cols-2 gap-3 md:grid-cols-4">

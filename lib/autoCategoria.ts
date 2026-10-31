@@ -43,15 +43,18 @@ export function normNote(s: string) {
     .trim();
 }
 /** Sin espacios: "mc donalds" y "mcdonald s" (de "McDonald's") quedan iguales */
-const compact = (n: string) => n.replace(/ /g, "");
+export const compact = (n: string) => n.replace(/ /g, "");
 const tokens = (n: string) => n.split(" ").filter((w) => w.length >= 3 && !STOP.has(w) && !/^\d+$/.test(w));
+
+/** Servicios que casi siempre son suscripciones (también lo usa el radar) */
+export const SUBS_RE = /\b(netflix|spotify|hbo|max|disney|youtube|prime|paramount|crunchyroll|claude|chatgpt|openai|icloud|apple|google one|meli|nivel 6|deezer|tidal|canva|notion|adobe|xbox game pass|game pass|playstation plus|ps plus|nintendo online|duolingo|patreon|twitch)\b/;
 
 /** Reglas para cuando todavía no hay historial: palabra → nombres de categoría posibles */
 const RULES: [RegExp, string[]][] = [
   [/\b(uber|didi|cabify|taxi|remis|sube|colectivo|subte|tren|nafta|ypf|shell|axion|peaje|estacionamiento)\b/, ["Transporte"]],
   [/\b(pedidosya|rappi|delivery)\b/, ["Delivery"]],
   [/\b(coto|carrefour|dia|jumbo|disco|vea|chango|chino|super|supermercado|verduleria|verdu|carniceria|almacen|autoservicio)\b/, ["Supermercado"]],
-  [/\b(netflix|spotify|hbo|max|disney|youtube|prime|claude|chatgpt|icloud|apple|meli)\b/, ["Suscripciones"]],
+  [SUBS_RE, ["Suscripciones"]],
   [/\b(kiosco|kiosko|maxikiosco)\b/, ["Kiosco"]],
   [/\b(cafe|cafeteria|medialunas|helado|helados|heladeria|panaderia|reposteria)\b/, ["Café y antojos", "Comida afuera"]],
   [/\b(farmacia|medico|dentista|obra social|prepaga|osde|swiss)\b/, ["Salud"]],

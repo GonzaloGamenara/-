@@ -111,7 +111,8 @@ interface Store {
   addTx: (t: NewTx, splits?: SplitShare[]) => Promise<boolean>;
   updateTx: (id: string, patch: Partial<NewTx>) => Promise<void>;
   deleteTx: (id: string) => Promise<void>;
-  saveRecurring: (r: Partial<Recurring> & Pick<Recurring, "kind" | "name" | "amount">) => Promise<void>;
+  /** `link`: movimientos ya cargados que pasan a ser cobros de este fijo (uno por mes) */
+  saveRecurring: (r: Partial<Recurring> & Pick<Recurring, "kind" | "name" | "amount">, opts?: { link?: { id: string; period: string }[] }) => Promise<void>;
   saveCard: (c: Partial<Card> & Pick<Card, "name" | "due_day">) => Promise<void>;
   deleteCard: (id: string) => Promise<void>;
   savePurchase: (p: PurchaseInput) => Promise<boolean>;
@@ -535,7 +536,7 @@ export function DataProvider({
 
   // --- fijos y categorías -------------------------------------------------
   const saveRecurring: Store["saveRecurring"] = useCallback(
-    async (r) => {
+    async (r, opts) => {
       const db = supabase();
       const body = {
         kind: r.kind,
@@ -546,10 +547,21 @@ export function DataProvider({
         active: r.active ?? true,
         ...(r.card_id !== undefined && !needsMigration ? { card_id: r.card_id } : {}),
       };
-      const { error } = r.id
-        ? await db.from("recurring").update(body).eq("id", r.id)
-        : await db.from("recurring").insert(body);
-      if (error) return toast(error.message);
+      let id = r.id;
+      if (id) {
+        const { error } = await db.from("recurring").update(body).eq("id", id);
+        if (error) return toast(error.message);
+      } else {
+        const { data, error } = await db.from("recurring").insert(body).select("id").single();
+        if (error) return toast(error.message);
+        id = (data as { id: string } | null)?.id;
+      }
+      // Lo que ya habías cargado a mano queda como cobro del fijo: no se duplica este mes
+      if (id && opts?.link?.length) {
+        const res = await Promise.all(opts.link.map((l) => db.from("transactions").update({ recurring_id: id, period: l.period }).eq("id", l.id)));
+        const failed = res.find((x) => x.error);
+        if (failed?.error) toast(failed.error.message);
+      }
       await load(month);
     },
     [cards, load, month, needsMigration, toast],
