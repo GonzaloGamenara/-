@@ -52,15 +52,16 @@ export default function GroupPage() {
     <div className="grid gap-5">
       <Back />
 
-      <header className="rise flex items-start justify-between gap-3">
+      {/* Título arriba y acciones abajo: con nombres largos ya no se amontonan */}
+      <header className="rise grid gap-3">
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-semibold tracking-tight">{g.name}</h1>
-          <p className="text-sm capitalize text-muted">
+          <h1 className="text-2xl font-semibold tracking-tight [overflow-wrap:anywhere]">{g.name}</h1>
+          <p className="text-sm text-muted first-letter:uppercase">
             {dayLabel(g.occurred_on)}
             {cat && ` · ${cat.emoji} ${cat.name}`}
           </p>
         </div>
-        <div className="flex shrink-0 gap-1.5">
+        <div className="flex gap-2">
           <button onClick={() => setSharing(true)} className="press rounded-full bg-accent2 px-3.5 py-2 text-sm font-semibold text-black">
             {g.share_token ? "Link" : "Compartir"}
           </button>

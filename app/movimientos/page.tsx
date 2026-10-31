@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useTechos } from "@/lib/techosStore";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { dayLabel, money, todayISO } from "@/lib/format";
@@ -25,10 +26,14 @@ function Movimientos() {
   const router = useRouter();
   const params = useSearchParams();
   const catFilter = params.get("cat");
+  const techoFilter = params.get("techo");
+  const { budgets } = useTechos();
+  const techo = techoFilter ? (budgets.find((b) => b.id === techoFilter) ?? null) : null;
   const [kind, setKind] = useState<"all" | "expense" | "income">("all");
   const [q, setQ] = useState("");
 
   const setCat = (id: string | null) => router.replace(id ? `/movimientos?cat=${id}` : "/movimientos");
+  const setTecho = (id: string | null) => router.replace(id ? `/movimientos?techo=${id}` : "/movimientos");
 
   // Categorías que tienen movimientos este mes (para los chips)
   const usedCats = useMemo(() => {
@@ -36,18 +41,28 @@ function Movimientos() {
     return categories.filter((c) => ids.has(c.id));
   }, [txs, categories]);
 
+  // Si llegás con un filtro (desde Inicio o Techos), el chip activo queda a la vista
+  const chipsRef = useRef<HTMLDivElement>(null);
+  const activeChip = techoFilter ?? catFilter;
+  const budgetsReady = budgets.length > 0;
+  useEffect(() => {
+    if (!activeChip) return;
+    chipsRef.current?.querySelector<HTMLElement>(`[data-chip="${activeChip}"]`)?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [activeChip, budgetsReady, usedCats.length]);
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return txs.filter((t) => {
       if (kind !== "all" && t.kind !== kind) return false;
       if (catFilter && t.category_id !== catFilter) return false;
+      if (techo && !techo.category_ids.includes(t.category_id ?? "")) return false;
       if (needle) {
         const cat = categories.find((c) => c.id === t.category_id)?.name ?? "";
         if (!`${t.note ?? ""} ${cat}`.toLowerCase().includes(needle)) return false;
       }
       return true;
     });
-  }, [txs, kind, catFilter, q, categories]);
+  }, [txs, kind, catFilter, techo, q, categories]);
 
   const groups = useMemo(() => {
     const map = new Map<string, typeof filtered>();
@@ -60,7 +75,7 @@ function Movimientos() {
   const spent = filtered.filter((t) => t.kind === "expense" && t.occurred_on <= today).reduce((a, t) => a + mine(t), 0);
   const programmed = filtered.filter((t) => t.kind === "expense" && t.occurred_on > today).reduce((a, t) => a + mine(t), 0);
   const earned = filtered.filter((t) => t.kind === "income").reduce((a, t) => a + t.amount, 0);
-  const hasFilters = kind !== "all" || !!catFilter || !!q;
+  const hasFilters = kind !== "all" || !!catFilter || !!techo || !!q;
 
   return (
     <div className="grid gap-3">
@@ -82,7 +97,7 @@ function Movimientos() {
         )}
       </label>
 
-      <div className="rise hide-scroll -mx-4 flex gap-2 overflow-x-auto px-4 text-sm" style={{ animationDelay: "60ms" }}>
+      <div ref={chipsRef} className="rise hide-scroll -mx-4 flex gap-2 overflow-x-auto px-4 text-sm" style={{ animationDelay: "60ms" }}>
         {([["all", "Todo"], ["expense", "Gastos"], ["income", "Ingresos"]] as const).map(([k, label]) => (
           <button
             key={k}
@@ -94,11 +109,28 @@ function Movimientos() {
           </button>
         ))}
         <span className="mx-1 w-px shrink-0 self-stretch bg-line" />
+        {budgets.map((b) => {
+          const on = b.id === techoFilter;
+          return (
+            <button
+              key={b.id}
+              data-chip={b.id}
+              onClick={() => setTecho(on ? null : b.id)}
+              aria-pressed={on}
+              className={`press flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 font-medium ${on ? "bg-fg text-bg" : "bg-surface text-muted"}`}
+            >
+              <span>🎯</span>
+              {b.name}
+            </button>
+          );
+        })}
+        {budgets.length > 0 && <span className="mx-1 w-px shrink-0 self-stretch bg-line" />}
         {usedCats.map((c) => {
           const on = c.id === catFilter;
           return (
             <button
               key={c.id}
+              data-chip={c.id}
               onClick={() => setCat(on ? null : c.id)}
               aria-pressed={on}
               className={`press flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 font-medium ${on ? "text-black" : "bg-surface text-muted"}`}

@@ -9,6 +9,7 @@ import { currentMonth, dueDate, money, monthLabel, todayISO } from "@/lib/format
 import { launchMonth } from "@/lib/launch";
 import type { Card, Purchase, Recurring } from "@/lib/types";
 import { PageHeader } from "@/components/PageHeader";
+import { PlanTabs } from "@/components/PlanTabs";
 import { RecurringForm } from "@/components/RecurringForm";
 import { CardForm } from "@/components/CardForm";
 import { MigrationNotice } from "@/components/MigrationNotice";
@@ -65,7 +66,7 @@ export default function Fijos() {
   return (
     <div className="grid gap-5">
       <PageHeader
-        title="Fijos"
+        title="Plan"
         subtitle="Lo que entra y sale todos los meses"
         right={
           <div className="flex items-center gap-1.5">
@@ -76,6 +77,8 @@ export default function Fijos() {
           </div>
         }
       />
+
+      <PlanTabs />
       <MigrationNotice />
 
       {!empty && (

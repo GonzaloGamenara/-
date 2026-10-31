@@ -70,8 +70,8 @@ function Dividir() {
                 <Link href={`/dividir/${g.id}`} className="press flex items-center gap-3 px-4 py-3.5">
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{g.name}</span>
-                    <span className="block text-xs capitalize text-muted">
-                      {dayLabel(g.occurred_on)} · {people} personas · {money(total)}
+                    <span className="block text-xs text-muted first-letter:uppercase">
+                      {dayLabel(g.occurred_on)} · {people} personas · <span className="whitespace-nowrap">{money(total)}</span>
                     </span>
                   </span>
                   <span className="text-right text-sm">

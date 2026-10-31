@@ -41,7 +41,6 @@ export default function Ajustes() {
 
       <Group title="Tu plata">
         <Row href="/patrimonio" icon="🏦" title="Patrimonio" sub="Cuentas e inversiones, con precios al día" />
-        <Row href="/techos" icon="🎯" title="Techos" sub="Cuánto querés gastar por categoría" />
       </Group>
 
       <Group title="Herramientas">

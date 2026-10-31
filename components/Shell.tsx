@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
-import { HomeIcon, ListIcon, PlusIcon, RepeatIcon, UserIcon, CloudOffIcon } from "./Icons";
+import { HomeIcon, ListIcon, PlusIcon, PlanIcon, UserIcon, CloudOffIcon } from "./Icons";
 import { QuickAdd } from "./QuickAdd";
 import { PurchaseSheet } from "./PurchaseSheet";
 import { useIosViewportFix } from "./useIosViewportFix";
@@ -14,8 +14,8 @@ const NAV = [
   { href: "/", label: "Inicio", Icon: HomeIcon, also: ["/patrimonio"] as string[] },
   { href: "/movimientos", label: "Movimientos", Icon: ListIcon, also: [] as string[] },
   null, // FAB
-  { href: "/fijos", label: "Fijos", Icon: RepeatIcon, also: ["/tarjetas"] },
-  { href: "/ajustes", label: "Perfil", Icon: UserIcon, also: ["/dividir", "/importar", "/techos"] },
+  { href: "/fijos", label: "Plan", Icon: PlanIcon, also: ["/tarjetas", "/techos"] },
+  { href: "/ajustes", label: "Perfil", Icon: UserIcon, also: ["/dividir", "/importar"] },
 ] as const;
 
 const isActive = (path: string, item: { href: string; also: readonly string[] }) =>

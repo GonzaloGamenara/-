@@ -6,6 +6,7 @@ import { useTechos, type BudgetInput } from "@/lib/techosStore";
 import { daysLabel, type Budget, type BudgetStatus } from "@/lib/techos";
 import { currentMonth, dayLabel, daysInMonth, money, todayISO } from "@/lib/format";
 import { PageHeader } from "@/components/PageHeader";
+import { PlanTabs } from "@/components/PlanTabs";
 import { EyeToggle } from "@/components/EyeToggle";
 import { BudgetBar, useBudgetStatuses } from "@/components/Techos";
 import { BudgetForm } from "@/components/BudgetForm";
@@ -54,7 +55,8 @@ export default function Techos() {
 
   return (
     <div className="grid gap-4">
-      <PageHeader title="Techos" subtitle="Cuánto querés gastar por mes" right={<EyeToggle />} />
+      <PageHeader title="Plan" subtitle="Cuánto querés gastar por mes" right={<EyeToggle />} />
+      <PlanTabs />
 
       {missing ? (
         <div className="glass rounded-3xl border-l-4 border-l-exp p-4 text-sm">

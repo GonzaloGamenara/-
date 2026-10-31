@@ -63,7 +63,7 @@ export default function CardDetail() {
           key: `est-${r.id}`,
           name: r.name,
           categoryId: r.category_id,
-          badge: "suscripción · estimada",
+          badge: "suscripción (estimada)",
           amount: r.amount,
           myPart: r.amount,
           estimated: true,
@@ -143,7 +143,7 @@ export default function CardDetail() {
                       <span className="block truncate font-medium">{l.name}</span>
                       <span className="flex items-center gap-1.5 text-xs text-muted">
                         {c?.name ?? "Sin categoría"}
-                        <span className="rounded-full bg-inset px-1.5 py-px text-[10px] font-medium text-fg/80">{l.badge}</span>
+                        <span className="shrink-0 whitespace-nowrap rounded-full bg-inset px-1.5 py-px text-[10px] font-medium text-fg/80">{l.badge}</span>
                       </span>
                     </span>
                     <span className="text-right">
@@ -232,7 +232,7 @@ function BackLink() {
       <span className="grid size-9 place-items-center rounded-full bg-surface">
         <ChevronLeft width={18} height={18} />
       </span>
-      Fijos
+      Plan
     </Link>
   );
 }

@@ -127,10 +127,13 @@ export function TechosCard({ delay = 0 }: { delay?: number }) {
         {isCurrent ? (left > 0 ? ` · faltan ${left} ${left === 1 ? "día" : "días"}` : " · último día") : ` · ${monthLabel(month).split(" ")[0].toLowerCase()} cerrado`}
       </p>
       <p className="-mt-3 mb-4 text-[11px] text-muted">Las compras con tarjeta cuentan el día que compraste, no cuando se pagan.</p>
-      <ul className="grid gap-4">
+      <ul className="grid gap-2">
         {statuses.map((s) => (
           <li key={s.cfg.id}>
-            <BudgetBar s={s} expectedPct={isCurrent ? day / dim : undefined} />
+            {/* Tocar un techo muestra sus movimientos */}
+            <Link href={`/movimientos?techo=${s.cfg.id}`} className="press -mx-2 block rounded-2xl px-2 py-1 hover:bg-surface">
+              <BudgetBar s={s} expectedPct={isCurrent ? day / dim : undefined} />
+            </Link>
           </li>
         ))}
       </ul>

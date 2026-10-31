@@ -161,12 +161,23 @@ export default function Home() {
               delay={160}
               hint={s.dailyRate !== null ? "promedio del día a día" : `se calcula desde el día 3`}
             />
-            <Stat
-              label={s.isCurrent ? "Comprometido" : "Fijos y tarjeta"}
-              value={moneyRound(s.isCurrent ? s.committed : s.breakdown[1].total + s.breakdown[2].total)}
-              delay={200}
-              hint={s.isCurrent ? (daysLeft > 0 ? `en los próximos ${daysLeft} días` : "nada más este mes") : "del total del mes"}
-            />
+            {s.isCurrent && s.committed === 0 ? (
+              // Sin nada comprometido (fin de mes), "$ 0" no dice nada: mostramos cuánto ahorrás
+              <Stat
+                label="Ahorrás"
+                value={s.earned > 0 ? `${Math.round(((s.earned - s.spent) / s.earned) * 100)}%` : "—"}
+                tone={s.earned > 0 && s.earned < s.spent ? "text-exp" : ""}
+                delay={200}
+                hint="de lo que entró este mes"
+              />
+            ) : (
+              <Stat
+                label={s.isCurrent ? "Comprometido" : "Fijos y tarjeta"}
+                value={moneyRound(s.isCurrent ? s.committed : s.breakdown[1].total + s.breakdown[2].total)}
+                delay={200}
+                hint={s.isCurrent ? `en los próximos ${daysLeft} días` : "del total del mes"}
+              />
+            )}
           </section>
 
           {Math.abs(owed) >= 1 && (

@@ -198,7 +198,7 @@ export function QuickAdd() {
         {editing && (
           <button
             onClick={async () => {
-              const extra = editing.recurring_id ? "\n\nEs un fijo: se vuelve a generar mientras siga activo (pausalo en Fijos)." : "";
+              const extra = editing.recurring_id ? "\n\nEs un fijo: se vuelve a generar mientras siga activo (pausalo en Plan → Fijos)." : "";
               if (confirm("¿Borrar este movimiento?" + extra)) {
                 await deleteTx(editing.id);
                 closeSheet();
