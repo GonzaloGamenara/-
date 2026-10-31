@@ -8,8 +8,19 @@ import { supabase } from "@/lib/supabase";
 import { dayLabel, money, uid } from "@/lib/format";
 import { CATEGORY_COLORS } from "@/components/CategoryForm";
 import { ChevronLeft } from "@/components/Icons";
-import { importRange, parseImport, planImport, type Action, type ImportFile, type PlannedRow } from "@/lib/importer";
-import type { Transaction } from "@/lib/types";
+import {
+  importRange,
+  parseImport,
+  planChanges,
+  planImport,
+  planMerges,
+  type Action,
+  type ImportFile,
+  type PlannedChange,
+  type PlannedMerge,
+  type PlannedRow,
+} from "@/lib/importer";
+import type { Kind, Transaction } from "@/lib/types";
 
 const FILTERS: { id: Action | "todos"; label: string }[] = [
   { id: "todos", label: "Todos" },
@@ -24,6 +35,8 @@ export default function Importar() {
   const [text, setText] = useState("");
   const [file, setFile] = useState<ImportFile | null>(null);
   const [rows, setRows] = useState<PlannedRow[] | null>(null);
+  const [changes, setChanges] = useState<PlannedChange[]>([]);
+  const [merges, setMerges] = useState<PlannedMerge[]>([]);
   const [filter, setFilter] = useState<Action | "todos">("todos");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,17 +46,24 @@ export default function Importar() {
     setBusy(true);
     try {
       const parsed = parseImport(raw);
-      if (!parsed.movimientos.length) throw new Error("El archivo no tiene movimientos");
-      const { from, to } = importRange(parsed);
-      const { data, error: err } = await supabase()
-        .from("transactions")
-        .select(needsMigration ? "id,kind,amount,category_id,note,occurred_on,recurring_id,period" : txColumns)
-        .gte("occurred_on", from)
-        .lte("occurred_on", to);
-      if (err) throw new Error("No pude leer lo que ya tenés cargado: " + err.message);
-      const existing = ((data ?? []) as unknown as Transaction[]).map((t) => ({ ...t, amount: Number(t.amount) }));
+      const range = importRange(parsed);
+      let existing: Transaction[] = [];
+      if (range) {
+        const { data, error: err } = await supabase()
+          .from("transactions")
+          .select(needsMigration ? "id,kind,amount,category_id,note,occurred_on,recurring_id,period" : txColumns)
+          .gte("occurred_on", range.from)
+          .lte("occurred_on", range.to);
+        if (err) throw new Error("No pude leer lo que ya tenés cargado: " + err.message);
+        existing = ((data ?? []) as unknown as Transaction[]).map((t) => ({
+          ...t,
+          amount: Number(t.amount),
+        }));
+      }
       setFile(parsed);
       setRows(planImport(parsed, existing, recurring, categories));
+      setChanges(planChanges(parsed, existing, categories));
+      setMerges(planMerges(parsed, categories));
       setFilter("todos");
     } catch (e) {
       setError((e as Error).message);
@@ -60,34 +80,65 @@ export default function Importar() {
   };
 
   const toggle = (key: number) => setRows((p) => p?.map((r) => (r.key === key ? { ...r, include: !r.include } : r)) ?? p);
+  const toggleChange = (key: number) => setChanges((p) => p.map((c) => (c.key === key && c.target ? { ...c, include: !c.include } : c)));
+  const toggleMerge = (key: number) =>
+    setMerges((p) => p.map((m) => (m.key === key && m.from && m.to ? { ...m, include: !m.include } : m)));
 
   const chosen = useMemo(() => rows?.filter((r) => r.include) ?? [], [rows]);
+  const chosenChanges = changes.filter((c) => c.include && c.target);
+  const chosenMerges = merges.filter((m) => m.include && m.from && m.to);
+  const total = chosen.length + chosenChanges.length + chosenMerges.length;
   const summary = useMemo(() => {
     const count = (a: Action) => rows?.filter((r) => r.action === a).length ?? 0;
     const sum = (k: "expense" | "income") =>
       chosen.filter((r) => r.kind === k && r.action === "nuevo").reduce((a, r) => a + (r.row.mi_parte ?? r.amount), 0);
-    const newCats = [...new Set(chosen.map((r) => r.newCategory).filter((x): x is string => !!x))];
-    return { nuevo: count("nuevo"), repetido: count("repetido"), fijo: count("fijo"), gastos: sum("expense"), ingresos: sum("income"), newCats };
-  }, [rows, chosen]);
+    const newCats = [
+      ...new Set(
+        [...chosen.map((r) => r.newCategory), ...changes.filter((c) => c.include).map((c) => c.newCategory)].filter(
+          (x): x is string => !!x,
+        ),
+      ),
+    ];
+    return {
+      nuevo: count("nuevo"),
+      repetido: count("repetido"),
+      fijo: count("fijo"),
+      gastos: sum("expense"),
+      ingresos: sum("income"),
+      newCats,
+    };
+  }, [rows, chosen, changes]);
 
   const visible = rows?.filter((r) => filter === "todos" || r.action === filter) ?? [];
 
   const run = async () => {
-    if (!rows || !file || !chosen.length) return;
+    if (!rows || !file || !total) return;
     setBusy(true);
     const db = supabase();
     try {
-      // 1. Categorías que faltan
+      // 1. Categorías que faltan (de movimientos nuevos o de correcciones)
       const catIds = new Map<string, string>();
-      const toCreate = [...new Map(chosen.filter((r) => r.newCategory).map((r) => [`${r.kind}:${r.newCategory}`, r])).values()];
-      if (toCreate.length) {
+      const needed = new Map<string, { kind: Kind; name: string }>();
+      for (const r of chosen)
+        if (r.newCategory)
+          needed.set(`${r.kind}:${r.newCategory}`, {
+            kind: r.kind,
+            name: r.newCategory,
+          });
+      for (const c of chosenChanges)
+        if (c.newCategory)
+          needed.set(`${c.target!.kind}:${c.newCategory}`, {
+            kind: c.target!.kind,
+            name: c.newCategory,
+          });
+      if (needed.size) {
         const defs = new Map(file.categorias.map((c) => [c.nombre.trim().toLowerCase(), c]));
-        const newCats = toCreate.map((r, i) => {
-          const def = defs.get(r.newCategory!.toLowerCase());
+        const newCats = [...needed.values()].map((n, i) => {
+          const def = defs.get(n.name.toLowerCase());
           return {
             id: uid(),
-            kind: r.kind,
-            name: r.newCategory!,
+            kind: n.kind,
+            name: n.name,
             emoji: def?.emoji || "🏷️",
             color: def?.color || CATEGORY_COLORS[(categories.length + i) % CATEGORY_COLORS.length],
             sort: categories.length + i,
@@ -97,7 +148,7 @@ export default function Importar() {
         if (err) throw new Error("No pude crear las categorías: " + err.message);
         newCats.forEach((c) => catIds.set(`${c.kind}:${c.name}`, c.id));
       }
-      const catId = (r: PlannedRow) => r.category?.id ?? (r.newCategory ? catIds.get(`${r.kind}:${r.newCategory}`) ?? null : null);
+      const catId = (r: PlannedRow) => r.category?.id ?? (r.newCategory ? (catIds.get(`${r.kind}:${r.newCategory}`) ?? null) : null);
 
       // 2. Movimientos nuevos (y los repetidos que elegiste importar igual)
       const inserts = chosen
@@ -124,11 +175,42 @@ export default function Importar() {
         if (err) throw new Error(`No pude actualizar “${r.fijoName}”: ${err.message}`);
       }
 
-      const latest = chosen.map((r) => r.row.fecha).sort().at(-1)!.slice(0, 7);
-      setMonth(latest);
+      // 4. Correcciones sobre lo ya cargado
+      for (const c of chosenChanges) {
+        const t = c.target!;
+        const { error: err } = c.change.borrar
+          ? await db.from("transactions").delete().eq("id", t.id)
+          : await db
+              .from("transactions")
+              .update({
+                ...c.patch,
+                ...(c.newCategory ? { category_id: catIds.get(`${t.kind}:${c.newCategory}`) } : {}),
+              })
+              .eq("id", t.id);
+        if (err) throw new Error(`No pude corregir “${t.note ?? "un movimiento"}”: ${err.message}`);
+      }
+
+      // 5. Categorías fusionadas: todo pasa a la de destino y la vieja se borra
+      for (const m of chosenMerges) {
+        for (const table of needsMigration ? ["transactions", "recurring"] : ["transactions", "recurring", "purchases"]) {
+          const { error: err } = await db.from(table).update({ category_id: m.to!.id }).eq("category_id", m.from!.id);
+          if (err) throw new Error(`No pude pasar “${m.from!.name}” a “${m.to!.name}”: ${err.message}`);
+        }
+        const { error: err } = await db.from("categories").delete().eq("id", m.from!.id);
+        if (err) throw new Error(`No pude borrar la categoría “${m.from!.name}”: ${err.message}`);
+      }
+
+      const dates = [...chosen.map((r) => r.row.fecha), ...chosenChanges.map((c) => c.change.fecha ?? c.target!.occurred_on)].sort();
+      if (dates.length) setMonth(dates.at(-1)!.slice(0, 7));
       await reload();
-      toast(`Listo ✓ ${inserts.length} movimientos importados`);
-      router.push("/movimientos");
+      const parts = [
+        inserts.length && `${inserts.length} importados`,
+        chosenChanges.length + chosen.filter((r) => r.action === "fijo").length &&
+          `${chosenChanges.length + chosen.filter((r) => r.action === "fijo").length} corregidos`,
+        chosenMerges.length && `${chosenMerges.length} categorías unificadas`,
+      ].filter(Boolean);
+      toast(`Listo ✓ ${parts.join(" · ")}`);
+      router.push(dates.length ? "/movimientos" : "/ajustes");
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -150,12 +232,17 @@ export default function Importar() {
       {!rows && (
         <section className="glass rise grid gap-4 rounded-3xl p-4">
           <p className="text-sm text-muted">
-            Elegí el archivo <span className="font-medium text-fg">.json</span> con tus movimientos. La app marca los que ya tenés cargados para no
-            duplicarlos y actualiza tus fijos con el monto real.
+            Elegí el archivo <span className="font-medium text-fg">.json</span> con tus movimientos. La app marca los que ya tenés cargados
+            para no duplicarlos y actualiza tus fijos con el monto real.
           </p>
           <label className="press grid cursor-pointer place-items-center rounded-2xl bg-fg py-3.5 font-semibold text-bg">
             {busy ? "Leyendo…" : "Elegir archivo"}
-            <input type="file" accept=".json,application/json,text/plain" className="sr-only" onChange={(e) => onFile(e.target.files?.[0])} />
+            <input
+              type="file"
+              accept=".json,application/json,text/plain"
+              className="sr-only"
+              onChange={(e) => onFile(e.target.files?.[0])}
+            />
           </label>
           <details className="group">
             <summary className="press cursor-pointer list-none text-center text-sm text-muted [&::-webkit-details-marker]:hidden">
@@ -186,46 +273,84 @@ export default function Importar() {
 
       {rows && (
         <>
-          <section className="glass rise grid gap-3 rounded-3xl p-4">
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <Stat n={summary.nuevo} label="nuevos" />
-              <Stat n={summary.repetido} label="ya cargados" />
-              <Stat n={summary.fijo} label="fijos" />
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted">Gastos nuevos</span>
-              <span className="num font-semibold" data-monto>−{money(summary.gastos)}</span>
-            </div>
-            <div className="-mt-2 flex justify-between text-sm">
-              <span className="text-muted">Ingresos nuevos</span>
-              <span className="num font-semibold text-inc" data-monto>+{money(summary.ingresos)}</span>
-            </div>
-            {summary.newCats.length > 0 && (
-              <p className="text-xs text-muted">
-                Se crean las categorías: <span className="text-fg">{summary.newCats.join(", ")}</span>
-              </p>
-            )}
-            {summary.repetido > 0 && (
-              <p className="text-xs text-muted">Los que parecen ya cargados quedan destildados. Tocalos si querés importarlos igual.</p>
-            )}
-          </section>
+          {(changes.length > 0 || merges.length > 0) && (
+            <section className="glass rise grid gap-2 rounded-3xl p-4">
+              <div>
+                <h2 className="font-semibold">Correcciones</h2>
+                <p className="text-xs text-muted">Sobre lo que ya tenés cargado. Tocá una para no aplicarla.</p>
+              </div>
+              <ul className="-mx-2 grid gap-1">
+                {merges.map((m) => (
+                  <li key={`m${m.key}`}>
+                    <MergeRow m={m} onToggle={() => toggleMerge(m.key)} />
+                  </li>
+                ))}
+                {changes.map((c) => (
+                  <li key={`c${c.key}`}>
+                    <ChangeRow c={c} onToggle={() => toggleChange(c.key)} />
+                  </li>
+                ))}
+              </ul>
+              {rows.length === 0 && summary.newCats.length > 0 && (
+                <p className="text-xs text-muted">
+                  Se crean las categorías: <span className="text-fg">{summary.newCats.join(", ")}</span>
+                </p>
+              )}
+            </section>
+          )}
 
-          <div className="grid grid-cols-4 rounded-full bg-inset p-1 text-xs font-semibold">
-            {FILTERS.map((f) => (
-              <button key={f.id} onClick={() => setFilter(f.id)} className={`rounded-full py-1.5 ${filter === f.id ? "bg-bg text-fg shadow-sm" : "text-muted"}`}>
-                {f.label}
-              </button>
-            ))}
-          </div>
+          {rows.length > 0 && (
+            <>
+              <section className="glass rise grid gap-3 rounded-3xl p-4">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <Stat n={summary.nuevo} label="nuevos" />
+                  <Stat n={summary.repetido} label="ya cargados" />
+                  <Stat n={summary.fijo} label="fijos" />
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted">Gastos nuevos</span>
+                  <span className="num font-semibold" data-monto>
+                    −{money(summary.gastos)}
+                  </span>
+                </div>
+                <div className="-mt-2 flex justify-between text-sm">
+                  <span className="text-muted">Ingresos nuevos</span>
+                  <span className="num font-semibold text-inc" data-monto>
+                    +{money(summary.ingresos)}
+                  </span>
+                </div>
+                {summary.newCats.length > 0 && (
+                  <p className="text-xs text-muted">
+                    Se crean las categorías: <span className="text-fg">{summary.newCats.join(", ")}</span>
+                  </p>
+                )}
+                {summary.repetido > 0 && (
+                  <p className="text-xs text-muted">Los que parecen ya cargados quedan destildados. Tocalos si querés importarlos igual.</p>
+                )}
+              </section>
 
-          <ul className="grid gap-1">
-            {visible.map((r) => (
-              <li key={r.key}>
-                <Row r={r} onToggle={() => toggle(r.key)} />
-              </li>
-            ))}
-            {!visible.length && <li className="py-6 text-center text-sm text-muted">Nada por acá</li>}
-          </ul>
+              <div className="grid grid-cols-4 rounded-full bg-inset p-1 text-xs font-semibold">
+                {FILTERS.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setFilter(f.id)}
+                    className={`rounded-full py-1.5 ${filter === f.id ? "bg-bg text-fg shadow-sm" : "text-muted"}`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              <ul className="grid gap-1">
+                {visible.map((r) => (
+                  <li key={r.key}>
+                    <Row r={r} onToggle={() => toggle(r.key)} />
+                  </li>
+                ))}
+                {!visible.length && <li className="py-6 text-center text-sm text-muted">Nada por acá</li>}
+              </ul>
+            </>
+          )}
 
           {error && <p className="rounded-2xl bg-exp/10 px-3 py-2 text-sm text-exp">{error}</p>}
 
@@ -233,6 +358,8 @@ export default function Importar() {
             <button
               onClick={() => {
                 setRows(null);
+                setChanges([]);
+                setMerges([]);
                 setError(null);
               }}
               disabled={busy}
@@ -242,11 +369,13 @@ export default function Importar() {
             </button>
             <button
               onClick={run}
-              disabled={busy || !chosen.length}
+              disabled={busy || !total}
               className="press rounded-2xl py-3.5 font-semibold text-accent-ink shadow-lg disabled:opacity-50"
-              style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}
+              style={{
+                background: "linear-gradient(135deg, var(--accent), var(--accent-2))",
+              }}
             >
-              {busy ? "Guardando…" : `Importar ${chosen.length}`}
+              {busy ? "Guardando…" : `${rows.length ? "Importar" : "Aplicar"} ${total}`}
             </button>
           </div>
         </>
@@ -283,7 +412,9 @@ function Row({ r, onToggle }: { r: PlannedRow; onToggle: () => void }) {
       </span>
       <span
         className="grid size-10 shrink-0 place-items-center rounded-2xl text-lg"
-        style={{ background: `color-mix(in srgb, ${cat?.color ?? "#64748b"} 22%, transparent)` }}
+        style={{
+          background: `color-mix(in srgb, ${cat?.color ?? "#64748b"} 22%, transparent)`,
+        }}
       >
         {cat?.emoji ?? (r.newCategory ? "✨" : "❔")}
       </span>
@@ -310,6 +441,82 @@ function Row({ r, onToggle }: { r: PlannedRow; onToggle: () => void }) {
           {money(shown)}
         </span>
         {shown < r.amount && <span className="num text-[11px] text-muted">de {money(r.amount)}</span>}
+      </span>
+    </button>
+  );
+}
+
+function Check({ on }: { on: boolean }) {
+  return (
+    <span
+      className={`grid size-5 shrink-0 place-items-center rounded-full border-2 text-[11px] font-bold ${
+        on ? "border-transparent bg-accent text-accent-ink" : "border-line"
+      }`}
+    >
+      {on ? "✓" : ""}
+    </span>
+  );
+}
+
+function ChangeRow({ c, onToggle }: { c: PlannedChange; onToggle: () => void }) {
+  const { categories } = useStore();
+  const t = c.target;
+  const del = !!c.change.borrar;
+  const from = t ? categories.find((x) => x.id === t.category_id) : null;
+  const edits: string[] = [];
+  if (c.change.categoria) edits.push(`${from?.name ?? "Sin categoría"} → ${c.category?.name ?? `${c.newCategory} (nueva)`}`);
+  if (c.patch.note !== undefined && c.patch.note !== t?.note) edits.push(`“${c.patch.note ?? ""}”`);
+  if (c.patch.amount !== undefined) edits.push(money(c.patch.amount));
+  if (c.patch.occurred_on) edits.push(dayLabel(c.patch.occurred_on));
+  return (
+    <button
+      onClick={onToggle}
+      disabled={!t}
+      aria-pressed={c.include}
+      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity hover:bg-surface ${c.include ? "" : "opacity-45"}`}
+    >
+      <Check on={c.include} />
+      <span className={`grid size-10 shrink-0 place-items-center rounded-2xl text-lg ${del ? "bg-exp/15" : "bg-inset"}`}>
+        {del ? "🗑️" : "✏️"}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[15px] font-medium">
+          {del ? "Borrar" : "Editar"}: {t?.note || c.change.buscar.nota || from?.name || "movimiento"}
+        </span>
+        <span className="line-clamp-2 block text-xs text-muted">
+          {dayLabel(c.change.buscar.fecha)} · <span className="num">{money(Math.abs(c.change.buscar.monto))}</span>
+          {edits.length > 0 && ` · ${edits.join(" · ")}`}
+        </span>
+        {(c.problem || c.change.motivo) && (
+          <span className={`mt-0.5 line-clamp-2 block text-[11px] ${c.problem ? "text-amber-500" : "text-muted"}`}>
+            {c.problem ?? c.change.motivo}
+          </span>
+        )}
+      </span>
+    </button>
+  );
+}
+
+function MergeRow({ m, onToggle }: { m: PlannedMerge; onToggle: () => void }) {
+  const ok = !!m.from && !!m.to;
+  return (
+    <button
+      onClick={onToggle}
+      disabled={!ok}
+      aria-pressed={m.include}
+      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity hover:bg-surface ${m.include ? "" : "opacity-45"}`}
+    >
+      <Check on={m.include} />
+      <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">🔀</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[15px] font-medium">
+          Unificar {m.from?.emoji} {m.merge.de} → {m.to?.emoji} {m.merge.a}
+        </span>
+        <span className={`block truncate text-xs ${ok ? "text-muted" : "text-amber-500"}`}>
+          {ok
+            ? `Todo lo de “${m.merge.de}” pasa a “${m.merge.a}” y se borra “${m.merge.de}”`
+            : `No encontré la categoría “${m.from ? m.merge.a : m.merge.de}”`}
+        </span>
       </span>
     </button>
   );

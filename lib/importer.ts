@@ -18,6 +18,15 @@ import { parseISO } from "./format";
  * monto negativo = gasto, positivo = ingreso. "fijo" son nombres (separados por |)
  * del gasto/ingreso fijo que ese movimiento confirma: en vez de duplicarlo, se
  * actualiza el del mes con el monto y la fecha reales.
+ *
+ * Correcciones sobre lo ya cargado (opcional, en el mismo archivo o solo):
+ *   "cambios": [
+ *     { "buscar": { "fecha": "2026-10-01", "monto": -35000, "nota": "comision" }, "borrar": true, "motivo": "Repetido" },
+ *     { "buscar": { "fecha": "2026-10-02", "monto": -16830 }, "categoria": "Delivery", "nota": "Subway" }
+ *   ],
+ *   "fusionar_categorias": [{ "de": "Uber", "a": "Transporte" }]
+ * "buscar" tiene que encontrar exactamente un movimiento (fecha exacta, monto con
+ * signo y, si se pasan, un texto que contenga la nota y/o el nombre de su categoría).
  */
 export interface ImportRow {
   fecha: string;
@@ -35,9 +44,26 @@ export interface ImportCategory {
   tipo?: Kind;
 }
 
+export interface ImportChange {
+  buscar: { fecha: string; monto: number; nota?: string; categoria?: string };
+  borrar?: boolean;
+  categoria?: string;
+  nota?: string;
+  fecha?: string;
+  monto?: number;
+  motivo?: string;
+}
+
+export interface ImportMerge {
+  de: string;
+  a: string;
+}
+
 export interface ImportFile {
   categorias: ImportCategory[];
   movimientos: ImportRow[];
+  cambios: ImportChange[];
+  fusionar: ImportMerge[];
 }
 
 export type Action = "nuevo" | "repetido" | "fijo";
@@ -57,12 +83,7 @@ export interface PlannedRow {
   include: boolean;
 }
 
-const norm = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .trim();
+const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
 const isDate = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 
@@ -75,8 +96,10 @@ export function parseImport(text: string): ImportFile {
     throw new Error("El archivo no es un JSON válido");
   }
   const obj = (Array.isArray(data) ? { movimientos: data } : data) as Partial<Record<string, unknown>>;
-  const raw = Array.isArray(obj.movimientos) ? obj.movimientos : null;
-  if (!raw) throw new Error("No encontré la lista de “movimientos”");
+  const raw = Array.isArray(obj.movimientos) ? obj.movimientos : [];
+  const rawChanges = Array.isArray(obj.cambios) ? obj.cambios : [];
+  const rawMerges = Array.isArray(obj.fusionar_categorias) ? obj.fusionar_categorias : [];
+  if (!raw.length && !rawChanges.length && !rawMerges.length) throw new Error("No encontré “movimientos” ni “cambios” para aplicar");
   const movimientos: ImportRow[] = [];
   raw.forEach((r, i) => {
     const x = r as Partial<ImportRow>;
@@ -97,15 +120,41 @@ export function parseImport(text: string): ImportFile {
   const categorias = (Array.isArray(obj.categorias) ? obj.categorias : [])
     .map((c) => c as Partial<ImportCategory>)
     .filter((c): c is ImportCategory => typeof c.nombre === "string" && !!c.nombre.trim());
-  return { categorias, movimientos };
+  const cambios: ImportChange[] = rawChanges.map((r, i) => {
+    const x = r as Partial<ImportChange>;
+    const monto = Number(x.buscar?.monto);
+    if (!isDate(x.buscar?.fecha) || !Number.isFinite(monto) || monto === 0) {
+      throw new Error(`Cambio ${i + 1}: “buscar” necesita fecha (AAAA-MM-DD) y monto`);
+    }
+    const nuevoMonto = x.monto === undefined ? undefined : Number(x.monto);
+    return {
+      buscar: {
+        fecha: x.buscar!.fecha,
+        monto,
+        nota: typeof x.buscar?.nota === "string" ? x.buscar.nota : undefined,
+        categoria: typeof x.buscar?.categoria === "string" ? x.buscar.categoria : undefined,
+      },
+      borrar: x.borrar === true,
+      categoria: typeof x.categoria === "string" ? x.categoria.trim() : undefined,
+      nota: typeof x.nota === "string" ? x.nota.trim() : undefined,
+      fecha: isDate(x.fecha) ? x.fecha : undefined,
+      monto: nuevoMonto !== undefined && Number.isFinite(nuevoMonto) && nuevoMonto > 0 ? nuevoMonto : undefined,
+      motivo: typeof x.motivo === "string" ? x.motivo : undefined,
+    };
+  });
+  const fusionar = rawMerges
+    .map((m) => m as Partial<ImportMerge>)
+    .filter((m): m is ImportMerge => typeof m.de === "string" && typeof m.a === "string" && !!m.de.trim() && !!m.a.trim());
+  return { categorias, movimientos, cambios, fusionar };
 }
 
 const daysBetween = (a: string, b: string) => Math.abs(parseISO(a).getTime() - parseISO(b).getTime()) / 86_400_000;
 const close = (a: number, b: number, tol: number) => Math.abs(a - b) <= Math.max(1, Math.abs(b) * tol);
 
-/** Rango de fechas a consultar para buscar repetidos */
+/** Rango de fechas a consultar para buscar repetidos y lo que hay que corregir */
 export function importRange(file: ImportFile) {
-  const dates = file.movimientos.map((m) => m.fecha).sort();
+  const dates = [...file.movimientos.map((m) => m.fecha), ...file.cambios.map((c) => c.buscar.fecha)].sort();
+  if (!dates.length) return null;
   const shift = (s: string, d: number) => {
     const t = parseISO(s);
     t.setDate(t.getDate() + d);
@@ -120,12 +169,7 @@ export function importRange(file: ImportFile) {
  * - "repetido": ya está cargado (mismo tipo, monto parecido, ±3 días) → se saltea
  * - "nuevo": se agrega
  */
-export function planImport(
-  file: ImportFile,
-  existing: Transaction[],
-  recurring: Recurring[],
-  categories: Category[],
-): PlannedRow[] {
+export function planImport(file: ImportFile, existing: Transaction[], recurring: Recurring[], categories: Category[]): PlannedRow[] {
   const used = new Set<string>();
   const catByName = new Map(categories.map((c) => [`${c.kind}:${norm(c.name)}`, c]));
 
@@ -136,9 +180,16 @@ export function planImport(
     const kind: Kind = row.monto < 0 ? "expense" : "income";
     const amount = Math.abs(row.monto);
     const catName = row.categoria?.trim() || null;
-    const category = catName ? catByName.get(`${kind}:${norm(catName)}`) ?? null : null;
+    const category = catName ? (catByName.get(`${kind}:${norm(catName)}`) ?? null) : null;
     const period = row.fecha.slice(0, 7);
-    const base = { key, row, kind, amount, category, newCategory: catName && !category ? catName : null };
+    const base = {
+      key,
+      row,
+      kind,
+      amount,
+      category,
+      newCategory: catName && !category ? catName : null,
+    };
 
     // ¿Confirma un fijo? Por nombre, y con un monto razonablemente parecido
     if (row.fijo) {
@@ -152,7 +203,15 @@ export function planImport(
           used.add(tx.id);
           // El fijo conserva su categoría: solo se corrigen monto y fecha
           const fijoCat = categories.find((c) => c.id === tx.category_id) ?? null;
-          return { ...base, category: fijoCat, newCategory: null, action: "fijo", match: tx, fijoName: r.name, include: true };
+          return {
+            ...base,
+            category: fijoCat,
+            newCategory: null,
+            action: "fijo",
+            match: tx,
+            fijoName: r.name,
+            include: true,
+          };
         }
       }
     }
@@ -160,19 +219,111 @@ export function planImport(
     // ¿Ya está cargado? (a mano o por un fijo)
     const dup = existing
       .filter(
-        (t) =>
-          !used.has(t.id) &&
-          t.kind === kind &&
-          close(Number(t.amount), amount, 0.005) &&
-          daysBetween(t.occurred_on, row.fecha) <= 3,
+        (t) => !used.has(t.id) && t.kind === kind && close(Number(t.amount), amount, 0.005) && daysBetween(t.occurred_on, row.fecha) <= 3,
       )
       .sort((a, b) => daysBetween(a.occurred_on, row.fecha) - daysBetween(b.occurred_on, row.fecha))[0];
     if (dup) {
       used.add(dup.id);
-      return { ...base, action: "repetido", match: dup, fijoName: null, include: false };
+      return {
+        ...base,
+        action: "repetido",
+        match: dup,
+        fijoName: null,
+        include: false,
+      };
     }
-    return { ...base, action: "nuevo", match: null, fijoName: null, include: true };
+    return {
+      ...base,
+      action: "nuevo",
+      match: null,
+      fijoName: null,
+      include: true,
+    };
   });
 
   return planned.sort((a, b) => b.row.fecha.localeCompare(a.row.fecha) || a.key - b.key);
+}
+
+export interface PlannedChange {
+  key: number;
+  change: ImportChange;
+  /** Movimiento encontrado (null si no está o hay más de uno igual) */
+  target: Transaction | null;
+  problem: string | null;
+  patch: Partial<Pick<Transaction, "category_id" | "note" | "occurred_on" | "amount">>;
+  category: Category | null;
+  newCategory: string | null;
+  include: boolean;
+}
+
+export interface PlannedMerge {
+  key: number;
+  from: Category | null;
+  to: Category | null;
+  merge: ImportMerge;
+  include: boolean;
+}
+
+/** Busca cada movimiento a corregir; si no aparece (o es ambiguo) queda sin aplicar */
+export function planChanges(file: ImportFile, existing: Transaction[], categories: Category[]): PlannedChange[] {
+  const used = new Set<string>();
+  return file.cambios.map((change, key): PlannedChange => {
+    const { fecha, monto, nota, categoria } = change.buscar;
+    const catOf = (t: Transaction) => categories.find((c) => c.id === t.category_id)?.name ?? "";
+    const kind: Kind = monto < 0 ? "expense" : "income";
+    const hits = existing.filter(
+      (t) =>
+        !used.has(t.id) &&
+        t.kind === kind &&
+        t.occurred_on === fecha &&
+        close(Number(t.amount), Math.abs(monto), 0.005) &&
+        (!nota || norm(t.note ?? "").includes(norm(nota))) &&
+        (!categoria || norm(catOf(t)) === norm(categoria)),
+    );
+    const base = { key, change, patch: {}, category: null, newCategory: null };
+    if (hits.length !== 1) {
+      return {
+        ...base,
+        target: null,
+        include: false,
+        problem: hits.length ? "Hay más de uno igual: no sé cuál" : "No lo encontré (¿ya lo cambiaste?)",
+      };
+    }
+    const target = hits[0];
+    used.add(target.id);
+    const patch: PlannedChange["patch"] = {};
+    let category: Category | null = null;
+    let newCategory: string | null = null;
+    if (change.categoria) {
+      category = categories.find((c) => c.kind === kind && norm(c.name) === norm(change.categoria!)) ?? null;
+      if (category) patch.category_id = category.id;
+      else newCategory = change.categoria;
+    }
+    if (change.nota !== undefined) patch.note = change.nota || null;
+    if (change.fecha) patch.occurred_on = change.fecha;
+    if (change.monto !== undefined) patch.amount = change.monto;
+    return {
+      ...base,
+      target,
+      problem: null,
+      patch,
+      category,
+      newCategory,
+      include: true,
+    };
+  });
+}
+
+export function planMerges(file: ImportFile, categories: Category[]): PlannedMerge[] {
+  return file.fusionar.map((merge, key) => {
+    const from = categories.find((c) => norm(c.name) === norm(merge.de)) ?? null;
+    const to = categories.find((c) => norm(c.name) === norm(merge.a) && (!from || c.kind === from.kind)) ?? null;
+    return {
+      key,
+      merge,
+      from,
+      to,
+      include: !!from && !!to && from.id !== to.id,
+    };
+  });
 }

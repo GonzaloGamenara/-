@@ -127,12 +127,13 @@ export async function buildDataset(range: Range, alias: string) {
     activo: r.active,
   }));
 
-  const cm = currentMonth();
   const cardInfo = cards.map((c) => {
+    // Lo que falta pagar arranca en el próximo resumen (la cuota de un resumen ya pagado no cuenta)
+    const from = nextPaymentPeriod(c);
     const plans = purchases
       .filter((p) => p.card_id === c.id && p.installments > 1)
       .map((p) => {
-        const left = remaining({ ...p, total_amount: num(p.total_amount) }, cm);
+        const left = remaining({ ...p, total_amount: num(p.total_amount) }, from);
         return {
           compra: p.description,
           categoria: catName(p.category_id),

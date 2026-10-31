@@ -89,7 +89,7 @@ export default function CardDetail() {
   const cat = (cid: string | null) => categories.find((c) => c.id === cid);
   const plans = cardPurchases
     .filter((p) => p.installments > 1)
-    .map((p) => ({ p, left: remaining(p, currentMonth()), now: installmentFor(p, shown) }))
+    .map((p) => ({ p, left: remaining(p, nextPaymentPeriod(card)), now: installmentFor(p, shown) }))
     .filter((x) => x.left.count > 0);
 
   return (
