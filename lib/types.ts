@@ -19,6 +19,8 @@ export interface Recurring {
   active: boolean;
   /** Si es una suscripción pagada con tarjeta */
   card_id?: string | null;
+  /** De qué cuenta se paga (o a cuál entra); vacío = la principal */
+  account_id?: string | null;
   created_at?: string;
 }
 
@@ -36,6 +38,9 @@ export interface Transaction {
   installment?: number | null;
   /** Si está dividido: lo que te toca a vos */
   my_share?: number | null;
+  /** De qué cuenta salió o a cuál entró (vacío = la principal) */
+  account_id?: string | null;
+  created_at?: string;
   /** Solo en cliente: todavía no se sincronizó con Supabase */
   pending?: boolean;
 }
@@ -45,6 +50,8 @@ export interface Card {
   name: string;
   color: string;
   due_day: number;
+  /** De qué cuenta se debita el resumen (vacío = la principal) */
+  account_id?: string | null;
 }
 
 export interface Purchase {
@@ -90,6 +97,12 @@ export interface Asset {
   broker: string | null;
   sort: number;
   updated_at: string;
+  /** Cuentas: cuándo confirmaste el saldo (desde ahí se suman y restan los movimientos) */
+  balance_at?: string | null;
+  /** La cuenta principal: de ahí salen los movimientos por defecto */
+  is_default?: boolean;
+  /** Fondos u otros que se pueden usar en el día (cuentan como disponible) */
+  liquid?: boolean;
 }
 
 export interface AssetSnapshot {

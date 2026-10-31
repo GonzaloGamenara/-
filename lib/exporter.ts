@@ -278,8 +278,10 @@ async function patrimonioSection() {
       dolar_mep: p.prices.mep,
       total: p.total,
       en_cuentas: p.cash,
+      disponible_hoy: p.disponible,
       invertido: p.invested,
       tarjetas_por_pagar: p.cardDebt,
+      deudas: p.debts,
       neto: p.net,
       activos: p.rows.map((r) => ({
         nombre: r.asset.name,
@@ -294,6 +296,8 @@ async function patrimonioSection() {
         saldo_en_su_moneda: r.asset.balance == null ? null : num(r.asset.balance),
         tna_estimada_pct: r.asset.rate == null ? null : num(r.asset.rate),
         valor_ars: r.value,
+        grupo: r.bucket,
+        saldo_estimado: r.estimate ? { confirmado: r.estimate.base, confirmado_el: r.estimate.since?.slice(0, 10) ?? null, movimientos_desde: r.estimate.count } : null,
         actualizado: r.asset.updated_at.slice(0, 10),
       })),
       evolucion_mensual: p.snapshots.map((x) => ({ mes: x.period, total: x.total, en_cuentas: x.cash, invertido: x.invested })),
@@ -357,7 +361,7 @@ export function toMarkdown(d: Dataset) {
     const p = d.patrimonio;
     L.push("## Patrimonio (cuentas e inversiones, hoy)");
     L.push(`- Neto (descontando tarjetas por pagar): ${$(p.neto)}${p.dolar_mep ? ` ≈ US$ ${Math.round(p.neto / p.dolar_mep).toLocaleString("es-AR")} (MEP ${$(p.dolar_mep)})` : ""}`);
-    L.push(`- En cuentas: ${$(p.en_cuentas)} · Invertido: ${$(p.invertido)} · Tarjetas por pagar: ${$(p.tarjetas_por_pagar)}`);
+    L.push(`- Disponible hoy: ${$(p.disponible_hoy)} · Invertido: ${$(p.invertido)} · Deudas (tarjetas y cuentas en rojo): ${$(p.deudas)}`);
     L.push("");
     L.push("| Nombre | Tipo | Dónde | Detalle | Valor en $ |");
     L.push("|---|---|---|---|---:|");

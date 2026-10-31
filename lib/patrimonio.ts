@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "./supabase";
-import { currentMonth, todayISO, uid } from "./format";
-import type { Asset, AssetKind, AssetSnapshot } from "./types";
+import { currentMonth, toISO, todayISO, uid } from "./format";
+import type { Asset, AssetKind, AssetSnapshot, Card } from "./types";
 import type { Quote } from "./preciosFuente";
+import { bucketOf, defaultAccountId, estimateBalance, type Bucket, type Estimate, type FlowTx } from "./cuentas";
 
 export const KIND_LABEL: Record<AssetKind, string> = {
   cuenta: "Cuenta",
@@ -30,31 +31,61 @@ export interface ValuedAsset {
   change: number | null;
   /** Fondos con TNA: cuánto se estimó de rendimiento desde la última actualización */
   accrued: number;
+  /** Cuentas: saldo estimado con los movimientos desde que lo confirmaste */
+  estimate: Estimate | null;
+  bucket: Bucket;
 }
 
 const PRICES_KEY = "gastos:precios";
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const daysSince = (iso: string) => Math.max(0, (Date.now() - new Date(iso).getTime()) / 86_400_000);
 
+/** Movimientos y tarjetas para estimar los saldos de las cuentas (vacío si falta la migración 008) */
+export interface Flows {
+  txs: FlowTx[];
+  cards: Pick<Card, "id" | "account_id">[];
+  defaultId: string | null;
+}
+
 /** Qué vale cada cosa hoy, en pesos */
-export function valueAsset(a: Asset, prices: Prices): ValuedAsset {
+export function valueAsset(a: Asset, prices: Prices, flows?: Flows | null): ValuedAsset {
   const toArs = (n: number) => (a.currency === "USD" ? (prices.mep ? n * prices.mep : null) : n);
+  const done = (v: Omit<ValuedAsset, "bucket">): ValuedAsset => ({ ...v, bucket: bucketOf(a, v.value) });
   if (a.kind === "cedear") {
     const q = a.ticker ? prices.quotes[a.ticker.toUpperCase()] : undefined;
     const price = q?.price ?? (a.last_price != null ? Number(a.last_price) : null);
     const qty = Number(a.quantity ?? 0);
-    return { asset: a, value: price != null ? r2(qty * price) : null, price, live: !!q, change: q?.change ?? null, accrued: 0 };
+    return done({ asset: a, value: price != null ? r2(qty * price) : null, price, live: !!q, change: q?.change ?? null, accrued: 0, estimate: null });
+  }
+  // Cuentas en pesos: el saldo se mueve solo con lo que cargás
+  if (a.kind === "cuenta" && a.currency !== "USD" && flows && a.balance_at) {
+    const est = estimateBalance(a, flows.txs, flows.cards, flows.defaultId, todayISO());
+    return done({ asset: a, value: est.value, price: null, live: false, change: null, accrued: 0, estimate: est });
   }
   const base = Number(a.balance ?? 0);
   const accrued = a.kind === "fondo" && a.rate ? r2(base * (Number(a.rate) / 100) * (daysSince(a.updated_at) / 365)) : 0;
-  return { asset: a, value: toArs(base + accrued), price: null, live: false, change: null, accrued };
+  return done({ asset: a, value: toArs(base + accrued), price: null, live: false, change: null, accrued, estimate: null });
 }
 
-export function totals(rows: ValuedAsset[], cardDebt: number) {
+export function totals(rows: ValuedAsset[], cardDebt: number, pendingFijos = 0) {
   const sum = (f: (r: ValuedAsset) => boolean) => r2(rows.filter(f).reduce((a, r) => a + (r.value ?? 0), 0));
-  const cash = sum((r) => r.asset.kind === "cuenta");
-  const invested = sum((r) => r.asset.kind !== "cuenta");
-  return { cash, invested, total: r2(cash + invested), net: r2(cash + invested - cardDebt) };
+  const disponible = sum((r) => r.bucket === "disponible");
+  const invested = sum((r) => r.bucket === "invertido");
+  // Cuentas en rojo (descubierto): se muestran como deuda
+  const owedAccounts = -sum((r) => r.bucket === "deuda");
+  const cash = r2(disponible - owedAccounts);
+  const debts = r2(owedAccounts + cardDebt);
+  return {
+    cash,
+    invested,
+    total: r2(cash + invested),
+    net: r2(cash + invested - cardDebt),
+    disponible,
+    debts,
+    owedAccounts,
+    /** Lo que podés usar de verdad: disponible − deudas − fijos que faltan este mes */
+    disponibleReal: r2(disponible - debts - pendingFijos),
+  };
 }
 
 function cachedPrices(): Prices {
@@ -101,19 +132,44 @@ export async function loadPatrimonio(prices?: Prices) {
   if (isMissing(assetsRes.error)) return { missing: true as const };
   if (assetsRes.error) throw assetsRes.error;
   const assets = (assetsRes.data ?? []) as Asset[];
+  const flows = await loadFlows(assets);
   const snapshots = ((snapsRes.data ?? []) as AssetSnapshot[]).map((s) => ({ ...s, total: Number(s.total), cash: Number(s.cash), invested: Number(s.invested) }));
   // Compras con tarjeta que todavía no pagaste (cuotas y resúmenes futuros)
   const cardDebt = r2(((debtRes.data ?? []) as { amount: number }[]).reduce((a, t) => a + Number(t.amount), 0));
   const p = prices ?? cachedPrices();
-  const rows = assets.map((a) => valueAsset(a, p));
-  return { missing: false as const, assets, snapshots, cardDebt, prices: p, rows, ...totals(rows, cardDebt) };
+  const rows = assets.map((a) => valueAsset(a, p, flows));
+  return { missing: false as const, assets, snapshots, cardDebt, flows, prices: p, rows, ...totals(rows, cardDebt) };
+}
+
+/** Movimientos desde el saldo confirmado más viejo (null si falta la migración 008) */
+export async function loadFlows(assets: Asset[]): Promise<Flows | null> {
+  const cuentas = assets.filter((a) => a.kind === "cuenta");
+  if (!cuentas.length || !("balance_at" in cuentas[0])) return null;
+  const anchors = cuentas.map((a) => a.balance_at).filter((x): x is string => !!x);
+  if (!anchors.length) return { txs: [], cards: [], defaultId: defaultAccountId(assets) };
+  const since = toISO(new Date(anchors.sort()[0]));
+  const db = supabase();
+  const [txRes, cardsRes] = await Promise.all([
+    db.from("transactions").select("kind,amount,account_id,card_id,occurred_on,created_at").gte("occurred_on", since).limit(10000),
+    db.from("cards").select("id,account_id"),
+  ]);
+  if (txRes.error || cardsRes.error) return null;
+  return {
+    txs: ((txRes.data ?? []) as FlowTx[]).map((t) => ({ ...t, amount: Number(t.amount) })),
+    cards: (cardsRes.data ?? []) as Pick<Card, "id" | "account_id">[],
+    defaultId: defaultAccountId(assets),
+  };
 }
 
 export type AssetInput = Partial<Asset> & Pick<Asset, "name" | "kind">;
 
-/** Hook de la pantalla de patrimonio */
-export function usePatrimonio() {
+/**
+ * Hook de la pantalla de patrimonio. `accountsReady`: la migración 008 está corrida (saldos estimados,
+ * cuenta principal y fondos disponibles). `pendingFijos`: gastos fijos que faltan este mes.
+ */
+export function usePatrimonio({ accountsReady = false, pendingFijos = 0 }: { accountsReady?: boolean; pendingFijos?: number } = {}) {
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [flows, setFlows] = useState<Flows | null>(null);
   const [snapshots, setSnapshots] = useState<AssetSnapshot[]>([]);
   const [cardDebt, setCardDebt] = useState(0);
   const [prices, setPrices] = useState<Prices>({ quotes: {}, mep: null, at: null });
@@ -127,6 +183,7 @@ export function usePatrimonio() {
       const r = await loadPatrimonio();
       if (r.missing) return setMissing(true);
       setAssets(r.assets);
+      setFlows(r.flows);
       setSnapshots(r.snapshots);
       setCardDebt(r.cardDebt);
       setPrices(r.prices);
@@ -151,7 +208,7 @@ export function usePatrimonio() {
     refreshPrices();
   }, [load, refreshPrices]);
 
-  const rows = useMemo(() => assets.map((a) => valueAsset(a, prices)), [assets, prices]);
+  const rows = useMemo(() => assets.map((a) => valueAsset(a, prices, flows)), [assets, prices, flows]);
 
   // Guardamos la cotización nueva como "último precio": si mañana la fuente falla, se usa esa
   useEffect(() => {
@@ -169,7 +226,7 @@ export function usePatrimonio() {
       });
     }
   }, [prices, assets]);
-  const t = useMemo(() => totals(rows, cardDebt), [rows, cardDebt]);
+  const t = useMemo(() => totals(rows, cardDebt, pendingFijos), [rows, cardDebt, pendingFijos]);
 
   // Foto del mes: se actualiza sola cuando cambia el total (alimenta el gráfico de evolución)
   const lastSaved = useRef<string>("");
@@ -204,20 +261,32 @@ export function usePatrimonio() {
         rate: input.kind === "fondo" ? (input.rate ?? null) : null,
         broker: input.broker?.trim() || null,
         updated_at: now,
+        // Guardar una cuenta es confirmar su saldo: desde ahora se suman y restan los movimientos
+        ...(accountsReady
+          ? {
+              balance_at: input.kind === "cuenta" ? now : null,
+              is_default: input.kind === "cuenta" ? !!input.is_default : false,
+              liquid: input.kind === "fondo" || input.kind === "otro" ? !!input.liquid : false,
+            }
+          : {}),
       };
       const id = input.id ?? uid();
       const { error: err } = input.id
         ? await db.from("assets").update(body).eq("id", id)
         : await db.from("assets").insert({ id, ...body, sort: assets.length });
       if (err) return err.message;
-      setAssets((prev) =>
-        input.id
-          ? prev.map((a) => (a.id === id ? { ...a, ...body } : a))
-          : [...prev, { id, ...body, sort: prev.length } as Asset],
-      );
+      // Una sola cuenta principal
+      if (accountsReady && input.kind === "cuenta" && input.is_default) {
+        await db.from("assets").update({ is_default: false }).eq("kind", "cuenta").neq("id", id);
+      }
+      setAssets((prev) => {
+        const next = input.id ? prev.map((a) => (a.id === id ? { ...a, ...body } : a)) : [...prev, { id, ...body, sort: prev.length } as Asset];
+        return accountsReady && input.kind === "cuenta" && input.is_default ? next.map((a) => (a.id === id || a.kind !== "cuenta" ? a : { ...a, is_default: false })) : next;
+      });
+      if (accountsReady && input.kind === "cuenta") load();
       return null;
     },
-    [assets.length],
+    [assets.length, accountsReady, load],
   );
 
   const remove = useCallback(async (id: string) => {
@@ -227,5 +296,5 @@ export function usePatrimonio() {
     return null;
   }, []);
 
-  return { assets, rows, snapshots, cardDebt, prices, loading, missing, error, refreshing, refreshPrices, save, remove, reload: load, ...t };
+  return { assets, rows, snapshots, cardDebt, flows, prices, loading, missing, error, refreshing, refreshPrices, save, remove, reload: load, ...t };
 }

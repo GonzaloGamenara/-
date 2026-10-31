@@ -4,6 +4,7 @@ import { useState } from "react";
 import { money, parseAmount } from "@/lib/format";
 import { KIND_EMOJI, KIND_LABEL, type AssetInput } from "@/lib/patrimonio";
 import type { Asset, AssetKind } from "@/lib/types";
+import type { Estimate } from "@/lib/cuentas";
 import { Sheet } from "./Sheet";
 import { TrashIcon } from "./Icons";
 
@@ -16,11 +17,17 @@ const parseSigned = (s: string) => (/^\s*[-−]/.test(s) ? -1 : 1) * parseAmount
 export function AssetForm({
   initial,
   livePrice,
+  estimate,
+  accountsReady = false,
   onClose,
   onSave,
   onDelete,
 }: {
   initial: Partial<Asset>;
+  /** Cuentas: lo que la app estimaba (para mostrar el descuadre al confirmar el saldo real) */
+  estimate?: Estimate | null;
+  /** Migración 008: cuenta principal, fondos disponibles y saldos estimados */
+  accountsReady?: boolean;
   /** Precio actual del ticker, si la cotización automática lo trae */
   livePrice?: number | null;
   onClose: () => void;
@@ -36,6 +43,8 @@ export function AssetForm({
   const [balance, setBalance] = useState(fmt(initial.balance));
   const [currency, setCurrency] = useState<"ARS" | "USD">(initial.currency ?? "ARS");
   const [rate, setRate] = useState(fmt(initial.rate));
+  const [isDefault, setIsDefault] = useState(!!initial.is_default);
+  const [liquid, setLiquid] = useState(!!initial.liquid);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +75,8 @@ export function AssetForm({
             balance: parseSigned(balance),
             currency,
             rate: rate.trim() ? parseAmount(rate) : null,
+            is_default: kind === "cuenta" ? isDefault : false,
+            liquid: kind === "fondo" || kind === "otro" ? liquid : false,
           });
           setBusy(false);
           if (err) setError(err);
@@ -132,7 +143,7 @@ export function AssetForm({
             </label>
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
               <label className="grid gap-1 text-sm text-muted">
-                {kind === "cuenta" ? "Saldo" : "Valor hoy"}
+                {kind === "cuenta" ? (accountsReady ? "Saldo real hoy (el del banco)" : "Saldo") : "Valor hoy"}
                 <input className={field} inputMode="decimal" value={balance} onChange={(e) => setBalance(e.target.value)} placeholder="Ej: 250.000 (o -28.780 si está en negativo)" />
                 {balance.trim() && (
                   <span className="num text-xs text-muted">
@@ -153,6 +164,13 @@ export function AssetForm({
                 ))}
               </div>
             </div>
+            {kind === "cuenta" && estimate && currency === "ARS" && <Descuadre estimate={estimate} real={balance.trim() ? parseSigned(balance) : null} />}
+            {accountsReady && kind === "cuenta" && (
+              <Toggle checked={isDefault} onChange={setIsDefault} title="Cuenta principal" hint="Lo que cargás sale de acá, salvo que elijas otra" />
+            )}
+            {accountsReady && (kind === "fondo" || kind === "otro") && (
+              <Toggle checked={liquid} onChange={setLiquid} title="Lo podés usar hoy" hint="Rescate inmediato (ej: money market o LECAP en el día): cuenta como disponible" />
+            )}
             {kind === "fondo" && (
               <label className="grid gap-1 text-sm text-muted">
                 Rendimiento anual estimado, TNA % (opcional)
@@ -192,10 +210,49 @@ export function AssetForm({
             </button>
           )}
           <button disabled={!valid || busy} className="press flex-1 rounded-2xl bg-accent py-3.5 font-semibold text-accent-ink disabled:opacity-40">
-            {busy ? "Guardando…" : "Guardar"}
+            {busy ? "Guardando…" : accountsReady && kind === "cuenta" && initial.id ? "Confirmar saldo" : "Guardar"}
           </button>
         </div>
       </form>
     </Sheet>
+  );
+}
+
+function Toggle({ checked, onChange, title, hint }: { checked: boolean; onChange: (v: boolean) => void; title: string; hint: string }) {
+  return (
+    <label className="flex items-center gap-3 rounded-xl bg-inset px-4 py-3 text-sm">
+      <span className="min-w-0 flex-1">
+        <span className="block font-medium text-fg">{title}</span>
+        <span className="block text-xs text-muted">{hint}</span>
+      </span>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="size-5 shrink-0 accent-[var(--accent-2)]" />
+    </label>
+  );
+}
+
+/** Lo que estimaba la app vs el saldo real: si no coincide, algo falta cargar */
+function Descuadre({ estimate, real }: { estimate: Estimate; real: number | null }) {
+  const diff = real == null ? 0 : Math.round((real - estimate.value) * 100) / 100;
+  const since = estimate.since ? new Date(estimate.since).toLocaleDateString("es-AR", { day: "numeric", month: "short" }).replace(".", "") : null;
+  const parts = [
+    estimate.income ? `+${money(estimate.income)} ingresos` : "",
+    estimate.expense ? `−${money(estimate.expense)} gastos` : "",
+    estimate.cards ? `−${money(estimate.cards)} tarjetas` : "",
+  ].filter(Boolean);
+  return (
+    <div className="grid gap-1 rounded-xl bg-inset px-4 py-3 text-xs text-muted">
+      <span>
+        La app estimaba <b className="num text-fg">{money(estimate.value)}</b>
+        {since && ` (confirmado el ${since}${parts.length ? `: ${parts.join(" ")}` : ", sin movimientos desde entonces"})`}
+      </span>
+      {Math.abs(diff) >= 1 ? (
+        <span className={diff < 0 ? "text-exp" : "text-inc"}>
+          Diferencia <b className="num">{diff < 0 ? "−" : "+"}{money(Math.abs(diff))}</b>:{" "}
+          {diff < 0 ? "puede haber gastos que no cargaste." : "puede haber ingresos que no cargaste."} Al confirmar, el saldo queda en el real.
+        </span>
+      ) : (
+        <span className="text-inc">Cuadra ✓</span>
+      )}
+    </div>
   );
 }

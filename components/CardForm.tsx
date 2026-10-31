@@ -6,12 +6,14 @@ import { CARD_COLORS } from "@/lib/cards";
 import type { Card } from "@/lib/types";
 import { Sheet } from "./Sheet";
 import { TrashIcon } from "./Icons";
+import { AccountPicker } from "./AccountPicker";
 
 export function CardForm({ initial, onClose }: { initial: Partial<Card>; onClose: () => void }) {
   const { saveCard, deleteCard } = useStore();
   const [name, setName] = useState(initial.name ?? "");
   const [color, setColor] = useState(initial.color ?? CARD_COLORS[0]);
   const [day, setDay] = useState(String(initial.due_day ?? 10));
+  const [accountId, setAccountId] = useState<string | null | undefined>(initial.account_id);
   const [busy, setBusy] = useState(false);
   const dayNum = Number(day);
   const valid = name.trim() && dayNum >= 1 && dayNum <= 31;
@@ -25,7 +27,7 @@ export function CardForm({ initial, onClose }: { initial: Partial<Card>; onClose
           e.preventDefault();
           if (!valid) return;
           setBusy(true);
-          await saveCard({ ...initial, name, color, due_day: dayNum });
+          await saveCard({ ...initial, name, color, due_day: dayNum, ...(accountId !== undefined ? { account_id: accountId } : {}) });
           onClose();
         }}
       >
@@ -44,6 +46,7 @@ export function CardForm({ initial, onClose }: { initial: Partial<Card>; onClose
           Día de pago (todos los meses)
           <input className={field} inputMode="numeric" maxLength={2} value={day} onChange={(e) => setDay(e.target.value.replace(/\D/g, ""))} />
         </label>
+        <AccountPicker label="El resumen se debita de" value={accountId} onChange={setAccountId} />
         <div className="flex flex-wrap gap-2.5">
           {CARD_COLORS.map((c) => (
             <button

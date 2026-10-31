@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { compact, currentMonth, money, moneyRound, monthLabelCompact } from "@/lib/format";
+import { compact, currentMonth, dueDate, money, moneyRound, monthLabelCompact, todayISO } from "@/lib/format";
+import { pendingFijos } from "@/lib/cuentas";
 import { KIND_EMOJI, usePatrimonio, type ValuedAsset } from "@/lib/patrimonio";
 import type { Asset, AssetSnapshot } from "@/lib/types";
 import { useStore } from "@/lib/store";
@@ -25,12 +26,15 @@ function ago(iso: string | null) {
 }
 
 export default function Patrimonio() {
-  const { hideAmounts } = useStore();
-  const p = usePatrimonio();
-  const [editing, setEditing] = useState<Partial<Asset> | null>(null);
+  const { hideAmounts, accountsReady, recurring, reload } = useStore();
+  const fijosPendientes = pendingFijos(recurring, todayISO(), dueDate);
+  const p = usePatrimonio({ accountsReady, pendingFijos: fijosPendientes });
+  const [editing, setEditing] = useState<{ asset: Partial<Asset>; row?: ValuedAsset } | null>(null);
 
-  const cuentas = p.rows.filter((r) => r.asset.kind === "cuenta");
-  const inversiones = p.rows.filter((r) => r.asset.kind !== "cuenta");
+  const disponibles = p.rows.filter((r) => r.bucket === "disponible");
+  const inversiones = p.rows.filter((r) => r.bucket === "invertido");
+  const enRojo = p.rows.filter((r) => r.bucket === "deuda");
+  const hasCuentas = p.rows.some((r) => r.asset.kind === "cuenta");
   const prev = [...p.snapshots].reverse().find((s) => s.period < currentMonth());
   const delta = prev && prev.total ? (p.total - prev.total) / Math.abs(prev.total) : null;
   const usd = p.prices.mep ? p.net / p.prices.mep : null;
@@ -38,8 +42,15 @@ export default function Patrimonio() {
   const anyStale = p.rows.some((r) => r.asset.kind === "cedear" && !r.live);
 
   const open = (r: ValuedAsset) =>
-    // Un fondo con TNA se edita desde su valor estimado de hoy, así guardar no pierde lo que rindió
-    setEditing(r.accrued ? { ...r.asset, balance: Number(r.asset.balance ?? 0) + r.accrued } : r.asset);
+    // Un fondo con TNA o una cuenta con saldo estimado se editan desde su valor de hoy: guardar no pierde lo que se movió
+    setEditing({
+      row: r,
+      asset: r.accrued
+        ? { ...r.asset, balance: Number(r.asset.balance ?? 0) + r.accrued }
+        : r.estimate
+          ? { ...r.asset, balance: r.estimate.value }
+          : r.asset,
+    });
 
   return (
     <div className="grid gap-4">
@@ -66,7 +77,7 @@ export default function Patrimonio() {
             Cargá tus cuentas y tus inversiones una vez. Los precios de los CEDEARs se actualizan solos, y cada mes queda guardada la foto para ver
             cómo evoluciona.
           </p>
-          <button onClick={() => setEditing({ kind: "cuenta" })} className="press mt-2 rounded-2xl bg-fg py-3.5 font-semibold text-bg">
+          <button onClick={() => setEditing({ asset: { kind: "cuenta" } })} className="press mt-2 rounded-2xl bg-fg py-3.5 font-semibold text-bg">
             Agregar la primera
           </button>
           <Link href="/importar" className="text-sm text-muted underline underline-offset-4">
@@ -104,37 +115,65 @@ export default function Patrimonio() {
             <div className="relative mt-5 grid gap-2.5">
               <StackBar
                 parts={[
-                  { key: "cash", value: Math.max(0, p.cash), color: "var(--accent-2)" },
+                  { key: "disp", value: Math.max(0, p.disponible), color: "var(--accent-2)" },
                   { key: "inv", value: Math.max(0, p.invested), color: "var(--inc)" },
+                  { key: "debt", value: Math.max(0, p.debts), color: "var(--exp)" },
                 ]}
               />
               <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-                <Legend color="var(--accent-2)" label="En cuentas" value={p.cash} />
+                <Legend color="var(--accent-2)" label="Disponible hoy" value={p.disponible} />
                 <Legend color="var(--inc)" label="Invertido" value={p.invested} />
-                {p.cardDebt > 0 && <Legend color="var(--exp)" label="Tarjetas por pagar" value={-p.cardDebt} />}
+                {p.debts > 0 && <Legend color="var(--exp)" label="Deudas" value={-p.debts} />}
               </ul>
+            </div>
+
+            {/* Lo que de verdad podés usar */}
+            <div className="relative mt-4 rounded-2xl bg-inset px-4 py-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-sm font-semibold">Disponible real</span>
+                <span className={`num text-lg font-semibold ${p.disponibleReal < 0 ? "text-exp" : ""}`}>{moneyRound(p.disponibleReal)}</span>
+              </div>
+              <p className="mt-0.5 text-[11px] leading-snug text-muted">
+                Disponible hoy{p.debts > 0 ? " − deudas" : ""}
+                {fijosPendientes > 0 ? ` − fijos que faltan este mes (${money(fijosPendientes)})` : ""}
+                {p.debts <= 0 && fijosPendientes <= 0 ? ": no tenés deudas ni fijos pendientes" : ""}
+              </p>
             </div>
 
             {p.snapshots.length >= 2 && <Evolution snapshots={p.snapshots} />}
           </section>
 
-          <Group title="Cuentas" total={p.cash} rows={cuentas} onOpen={open} />
-          <Group title="Inversiones" total={p.invested} rows={inversiones} onOpen={open} />
+          {!accountsReady && hasCuentas && (
+            <div className="glass rounded-3xl border-l-4 border-l-amber-500 p-4 text-sm">
+              <b>Para que los saldos se muevan solos con lo que cargás</b>
+              <p className="mt-1 text-muted">
+                Corré <code className="text-fg">supabase/migrations/008_cuentas.sql</code> en Supabase → SQL Editor → Run y recargá la app.
+              </p>
+            </div>
+          )}
 
-          {p.cardDebt > 0 && (
-            <Link href="/fijos" className="glass press rise flex items-center gap-3 rounded-3xl px-4 py-3.5">
-              <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">💳</span>
-              <span className="min-w-0 flex-1">
-                <span className="block font-medium">Tarjetas por pagar</span>
-                <span className="block truncate text-xs text-muted">Compras y cuotas que todavía no se debitaron</span>
-              </span>
-              <span className="num shrink-0 font-semibold text-exp">−{money(p.cardDebt)}</span>
-              <ChevronRight width={18} height={18} className="shrink-0 text-muted" />
-            </Link>
+          <Group title="Disponible hoy" total={p.disponible} rows={disponibles} onOpen={open} />
+          <Group title="Invertido" total={p.invested} rows={inversiones} onOpen={open} />
+          {(enRojo.length > 0 || p.cardDebt > 0) && (
+            <Group title="Deudas" total={-p.debts} rows={enRojo} onOpen={open}>
+              {p.cardDebt > 0 && (
+                <li>
+                  <Link href="/fijos" className="press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left hover:bg-surface">
+                    <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-inset text-xl">💳</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-medium">Tarjetas por pagar</span>
+                      <span className="block truncate text-xs text-muted">Compras y cuotas que todavía no se debitaron</span>
+                    </span>
+                    <span className="num shrink-0 text-[15px] font-semibold text-exp">−{money(p.cardDebt)}</span>
+                    <ChevronRight width={18} height={18} className="shrink-0 text-muted" />
+                  </Link>
+                </li>
+              )}
+            </Group>
           )}
 
           <button
-            onClick={() => setEditing({ kind: "cuenta" })}
+            onClick={() => setEditing({ asset: { kind: "cuenta" } })}
             className="press flex items-center justify-center gap-1.5 rounded-2xl border border-dashed border-line py-3.5 text-sm font-semibold text-muted"
           >
             <PlusIcon width={16} height={16} /> Agregar cuenta o inversión
@@ -156,11 +195,26 @@ export default function Patrimonio() {
 
       {editing && (
         <AssetForm
-          initial={editing}
-          livePrice={editing.ticker ? (p.prices.quotes[editing.ticker.toUpperCase()]?.price ?? null) : null}
+          initial={editing.asset}
+          livePrice={editing.asset.ticker ? (p.prices.quotes[editing.asset.ticker.toUpperCase()]?.price ?? null) : null}
+          estimate={editing.row?.estimate}
+          accountsReady={accountsReady}
           onClose={() => setEditing(null)}
-          onSave={p.save}
-          onDelete={editing.id ? () => p.remove(editing.id!) : undefined}
+          onSave={async (a) => {
+            const err = await p.save(a);
+            // La carga rápida usa tus cuentas: se refrescan si agregaste o cambiaste una
+            if (!err && a.kind === "cuenta") reload();
+            return err;
+          }}
+          onDelete={
+            editing.asset.id
+              ? async () => {
+                  const err = await p.remove(editing.asset.id!);
+                  if (!err && editing.asset.kind === "cuenta") reload();
+                  return err;
+                }
+              : undefined
+          }
         />
       )}
     </div>
@@ -177,8 +231,20 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
   );
 }
 
-function Group({ title, total, rows, onOpen }: { title: string; total: number; rows: ValuedAsset[]; onOpen: (r: ValuedAsset) => void }) {
-  if (!rows.length) return null;
+function Group({
+  title,
+  total,
+  rows,
+  onOpen,
+  children,
+}: {
+  title: string;
+  total: number;
+  rows: ValuedAsset[];
+  onOpen: (r: ValuedAsset) => void;
+  children?: React.ReactNode;
+}) {
+  if (!rows.length && !children) return null;
   return (
     <section className="glass rise rounded-3xl p-2">
       <div className="flex items-baseline justify-between px-2 pb-1 pt-2">
@@ -191,6 +257,7 @@ function Group({ title, total, rows, onOpen }: { title: string; total: number; r
             <Row r={r} onOpen={() => onOpen(r)} />
           </li>
         ))}
+        {children}
       </ul>
     </section>
   );
@@ -206,7 +273,15 @@ function Row({ r, onOpen }: { r: ValuedAsset; onOpen: () => void }) {
         ? `US$ ${new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 }).format(Number(a.balance ?? 0))}`
         : r.accrued
           ? `+${money(r.accrued)} estimado (${a.rate}% anual)`
-          : `actualizado ${ago(a.updated_at)}`;
+          : r.estimate
+            ? r.estimate.count
+              ? `estimado · confirmado ${ago(r.estimate.since)}`
+              : `confirmado ${ago(r.estimate.since)}`
+            : a.liquid
+              ? `se usa en el día · actualizado ${ago(a.updated_at)}`
+              : `actualizado ${ago(a.updated_at)}`;
+  // Saldo estimado hace más de 2 semanas: conviene confirmarlo
+  const stale = !!r.estimate?.since && Date.now() - new Date(r.estimate.since).getTime() > 14 * 86_400_000;
   return (
     <button onClick={onOpen} className="press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left hover:bg-surface">
       <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-inset text-xl">{KIND_EMOJI[a.kind]}</span>
@@ -214,8 +289,13 @@ function Row({ r, onOpen }: { r: ValuedAsset; onOpen: () => void }) {
         <span className="block truncate text-[15px] font-medium">
           {a.name}
           {a.broker && <span className="font-normal text-muted"> · {a.broker}</span>}
+          {a.kind === "cuenta" && a.is_default && (
+            <span className="ml-1.5 rounded-full bg-inset px-1.5 py-0.5 align-middle text-[10px] font-semibold text-muted">principal</span>
+          )}
         </span>
-        <span className="block truncate text-xs text-muted">{sub}</span>
+        <span className={`block truncate text-xs ${stale ? "font-medium text-amber-600 dark:text-amber-400" : "text-muted"}`}>
+          {stale ? `${sub} · tocá para confirmar` : sub}
+        </span>
       </span>
       <span className="shrink-0 text-right">
         <span className={`num block text-[15px] font-semibold ${(r.value ?? 0) < 0 ? "text-exp" : ""}`}>{r.value == null ? "—" : money(r.value)}</span>

@@ -6,6 +6,7 @@ import { parseAmount } from "@/lib/format";
 import type { Kind, Recurring } from "@/lib/types";
 import { Sheet } from "./Sheet";
 import { TrashIcon } from "./Icons";
+import { AccountPicker } from "./AccountPicker";
 
 /** Alta/edición de un fijo mensual. Con `card_id`, es una suscripción cobrada en esa tarjeta. */
 export function RecurringForm({
@@ -27,6 +28,7 @@ export function RecurringForm({
   const [day, setDay] = useState(String(initial.day ?? 1));
   const [catId, setCatId] = useState(initial.category_id ?? "");
   const [active, setActive] = useState(initial.active ?? true);
+  const [accountId, setAccountId] = useState<string | null | undefined>(initial.account_id);
   const [busy, setBusy] = useState(false);
 
   const amountNum = parseAmount(amount);
@@ -46,7 +48,7 @@ export function RecurringForm({
           e.preventDefault();
           if (!valid) return;
           setBusy(true);
-          await onSave({ ...initial, kind, name, amount: amountNum, day: Number(day), category_id: catId || null, active, card_id: kind === "expense" ? cardId : null });
+          await onSave({ ...initial, kind, name, amount: amountNum, day: Number(day), category_id: catId || null, active, card_id: kind === "expense" ? cardId : null, ...(accountId !== undefined ? { account_id: accountId } : {}) });
         }}
       >
         <label className="grid gap-1 text-sm text-muted">
@@ -91,6 +93,7 @@ export function RecurringForm({
             </label>
           )}
         </div>
+        {!card && <AccountPicker label={kind === "income" ? "Entra en" : "Sale de"} value={accountId} onChange={setAccountId} />}
         <label className="grid gap-1 text-sm text-muted">
           Categoría
           <select className={field} value={catId} onChange={(e) => setCatId(e.target.value)}>

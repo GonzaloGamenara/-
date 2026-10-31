@@ -41,7 +41,7 @@ const MODES: { id: Mode; label: string }[] = [
 
 export function QuickAdd() {
   const router = useRouter();
-  const { sheet, closeSheet, categories, addTx, updateTx, deleteTx, cards, savePurchase, openPurchase, splits } = useStore();
+  const { sheet, closeSheet, categories, addTx, updateTx, deleteTx, cards, savePurchase, openPurchase, splits, accounts, accountsReady, defaultAccount } = useStore();
   const editing = sheet.editing ?? null;
 
   const [mode, setMode] = useState<Mode>(editing ? editing.kind : (sheet.kind ?? "expense"));
@@ -52,6 +52,10 @@ export function QuickAdd() {
   const [keepOpen, setKeepOpen] = useState(false);
   const [flash, setFlash] = useState(false);
   const [payCard, setPayCard] = useState<string | null>(null);
+  // Cuenta de la que sale (o a la que entra); null = la principal
+  const [acct, setAcct] = useState<string | null>(editing?.account_id ?? null);
+  const acctId = acct ?? defaultAccount;
+  const showAccounts = accountsReady && accounts.length > 0 && !editing?.card_id;
   const [cuotas, setCuotas] = useState(1);
   const [busy, setBusy] = useState(false);
   const noteRef = useRef<HTMLInputElement>(null);
@@ -147,7 +151,14 @@ export function QuickAdd() {
       return;
     }
     if (editing) {
-      await updateTx(editing.id, { kind, amount, category_id: catId, note: note.trim() || null, occurred_on: date });
+      await updateTx(editing.id, {
+        kind,
+        amount,
+        category_id: catId,
+        note: note.trim() || null,
+        occurred_on: date,
+        ...(showAccounts ? { account_id: acctId } : {}),
+      });
       closeSheet();
       return;
     }
@@ -166,7 +177,7 @@ export function QuickAdd() {
         splits: [],
       });
     } else {
-      ok = await addTx({ kind, amount, category_id: catId, note: note.trim() || null, occurred_on: date });
+      ok = await addTx({ kind, amount, category_id: catId, note: note.trim() || null, occurred_on: date, ...(showAccounts ? { account_id: acctId } : {}) });
     }
     setBusy(false);
     if (!ok) return;
@@ -280,12 +291,26 @@ export function QuickAdd() {
       {!editing && kind === "expense" && (
         <div className="mb-3 grid gap-2">
           <div className="hide-scroll -mx-5 flex gap-1.5 overflow-x-auto px-5 text-sm">
-            <button
-              onClick={() => setPayCard(null)}
-              className={`press shrink-0 rounded-full px-3.5 py-1.5 font-medium ${!payCard ? "bg-fg text-bg" : "bg-inset text-muted"}`}
-            >
-              Efectivo / débito
-            </button>
+            {showAccounts ? (
+              accounts.map((a) => (
+                <AccountChip
+                  key={a.id}
+                  name={a.name}
+                  on={!payCard && acctId === a.id}
+                  onClick={() => {
+                    setPayCard(null);
+                    setAcct(a.id);
+                  }}
+                />
+              ))
+            ) : (
+              <button
+                onClick={() => setPayCard(null)}
+                className={`press shrink-0 rounded-full px-3.5 py-1.5 font-medium ${!payCard ? "bg-fg text-bg" : "bg-inset text-muted"}`}
+              >
+                Efectivo / débito
+              </button>
+            )}
             {cards.map((c) => (
               <button
                 key={c.id}
@@ -336,6 +361,15 @@ export function QuickAdd() {
               </p>
             </>
           )}
+        </div>
+      )}
+
+      {/* Ingresos (y movimientos que editás): a qué cuenta entró / de cuál salió */}
+      {showAccounts && accounts.length > 1 && (editing || kind === "income") && (
+        <div className="hide-scroll -mx-5 mb-3 flex gap-1.5 overflow-x-auto px-5 text-sm">
+          {accounts.map((a) => (
+            <AccountChip key={a.id} name={a.name} on={acctId === a.id} onClick={() => setAcct(a.id)} />
+          ))}
         </div>
       )}
 
@@ -426,5 +460,18 @@ export function QuickAdd() {
       </button>
       </div>
     </Sheet>
+  );
+}
+
+function AccountChip({ name, on, onClick }: { name: string; on: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={on}
+      className={`press flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 font-medium ${on ? "bg-fg text-bg" : "bg-inset text-muted"}`}
+    >
+      <span className="text-[13px]">🏦</span>
+      {name}
+    </button>
   );
 }

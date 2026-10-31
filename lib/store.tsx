@@ -14,7 +14,8 @@ import { usePrelaunch } from "@/components/LaunchGate";
 import { launchMonth } from "./launch";
 import { supabase } from "./supabase";
 import { loadHidden, setHidden } from "./privacy";
-import type { Card, Category, Kind, Purchase, Recurring, Split, Transaction } from "./types";
+import type { Asset, Card, Category, Kind, Purchase, Recurring, Split, Transaction } from "./types";
+import { defaultAccountId } from "./cuentas";
 import { buildInstallments } from "./cards";
 import {
   addMonths,
@@ -52,6 +53,8 @@ export interface NewTx {
   category_id: string | null;
   note?: string | null;
   occurred_on: string;
+  /** De qué cuenta sale (o a cuál entra); si no se indica, la principal */
+  account_id?: string | null;
 }
 
 /** Parte de otra persona en un gasto dividido */
@@ -108,6 +111,11 @@ interface Store {
   splits: Split[];
   /** Falta correr la migración 002 en Supabase */
   needsMigration: boolean;
+  /** Tus cuentas (de Patrimonio), para elegir de dónde sale cada movimiento */
+  accounts: Account[];
+  /** La migración 008 está corrida: los movimientos guardan su cuenta */
+  accountsReady: boolean;
+  defaultAccount: string | null;
   addTx: (t: NewTx, splits?: SplitShare[]) => Promise<boolean>;
   updateTx: (id: string, patch: Partial<NewTx>) => Promise<void>;
   deleteTx: (id: string) => Promise<void>;
@@ -140,6 +148,8 @@ interface Store {
   activity: number;
   markActivity: () => void;
 }
+
+export type Account = Pick<Asset, "id" | "name" | "kind" | "sort" | "is_default">;
 
 export interface SheetState {
   open: boolean;
@@ -243,6 +253,12 @@ export function DataProvider({
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [splits, setSplits] = useState<Split[]>([]);
   const [needsMigration, setNeedsMigration] = useState(false);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accountsReady, setAccountsReady] = useState(false);
+  const defaultAccount = useMemo(() => (accountsReady ? defaultAccountId(accounts) : null), [accounts, accountsReady]);
+  // Para addTx sin recrear callbacks
+  const acctRef = useRef<{ ready: boolean; def: string | null }>({ ready: false, def: null });
+  acctRef.current = { ready: accountsReady, def: defaultAccount };
   const [purchaseSheet, setPurchaseSheet] = useState<PurchaseSheetState>({ open: false });
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [sheet, setSheet] = useState<SheetState>({ open: false });
@@ -312,18 +328,35 @@ export function DataProvider({
             .lte("occurred_on", to)
             .order("occurred_on", { ascending: false })
             .order("created_at", { ascending: false });
-        const [catsRes, recs, txsNew, cardsRes, purchasesRes, splitsRes] = await Promise.all([
+        type Res = { data: unknown; error: { code?: string; message: string } | null };
+        const cardsQuery = (cols: string) => db.from("cards").select(cols).order("created_at");
+        const [catsRes, recs, txsFull, cardsFull, purchasesRes, splitsRes, acctRes] = await Promise.all([
           db.from("categories").select("*").order("sort").order("created_at"),
           db.from("recurring").select("*").order("day"),
-          txQuery(txColumns),
-          db.from("cards").select("id,name,color,due_day").order("created_at"),
+          txQuery(`${txColumns},account_id`) as unknown as Promise<Res>,
+          cardsQuery("id,name,color,due_day,account_id") as unknown as Promise<Res>,
           db.from("purchases").select("id,card_id,description,category_id,total_amount,installments,first_period,from_installment,purchased_on").order("purchased_on", { ascending: false }),
           db.from("splits").select("id,transaction_id,purchase_id,name,amount,settled_on").order("created_at", { ascending: false }),
+          db.from("assets").select("id,name,kind,sort,is_default").eq("kind", "cuenta").order("sort"),
         ]);
+        // Sin la migración 008: sin cuenta por movimiento, todo lo demás igual
+        const acctReady = !acctRes.error && !isMissingSchema(txsFull.error) && !isMissingSchema(cardsFull.error);
+        let txsNew = txsFull;
+        let cardsRes = cardsFull;
+        if (!acctReady) {
+          [txsNew, cardsRes] = await Promise.all([
+            isMissingSchema(txsFull.error) ? (txQuery(txColumns) as unknown as Promise<Res>) : txsFull,
+            isMissingSchema(cardsFull.error) ? (cardsQuery("id,name,color,due_day") as unknown as Promise<Res>) : cardsFull,
+          ]);
+        }
+        const acctList = acctReady ? ((acctRes.data ?? []) as Account[]) : [];
+        const defAcct = acctReady ? defaultAccountId(acctList) : null;
+        setAccounts(acctList);
+        setAccountsReady(acctReady);
         // Si todavía no se corrió la migración 002, seguimos funcionando con lo básico
         const missing = isMissingSchema(txsNew.error) || isMissingSchema(cardsRes.error);
         setNeedsMigration(missing);
-        const txs = isMissingSchema(txsNew.error) ? await txQuery(legacyTxColumns) : txsNew;
+        const txs = isMissingSchema(txsNew.error) ? ((await txQuery(legacyTxColumns)) as unknown as Res) : txsNew;
         const err = catsRes.error ?? recs.error ?? txs.error;
         if (err) throw err;
         if (!missing) {
@@ -368,12 +401,13 @@ export function DataProvider({
               recurring_id: r.id,
               period: m,
               ...(r.card_id ? { card_id: r.card_id } : {}),
+              ...(acctReady && !r.card_id ? { account_id: r.account_id ?? defAcct } : {}),
             }));
           if (due.length) {
             const ins = await db
               .from("transactions")
               .upsert(due, { onConflict: "recurring_id,period", ignoreDuplicates: true })
-              .select(missing ? legacyTxColumns : txColumns);
+              .select(missing ? legacyTxColumns : acctReady ? `${txColumns},account_id` : txColumns);
             if (!ins.error) {
               txData = [...((ins.data ?? []) as unknown as Transaction[]).map(normalizeTx), ...txData].sort((a, b) =>
                 b.occurred_on.localeCompare(a.occurred_on),
@@ -461,6 +495,7 @@ export function DataProvider({
         occurred_on: t.occurred_on,
         recurring_id: null,
         period: null,
+        ...(acctRef.current.ready ? { account_id: t.account_id ?? acctRef.current.def } : {}),
         ...(others.length ? { my_share: Math.max(0, Math.round((t.amount - othersTotal) * 100) / 100) } : {}),
       };
       const insertOptimistic = (pending: boolean) =>
@@ -546,6 +581,7 @@ export function DataProvider({
         day: r.card_id ? (cards.find((c) => c.id === r.card_id)?.due_day ?? r.day ?? 1) : (r.day ?? 1),
         active: r.active ?? true,
         ...(r.card_id !== undefined && !needsMigration ? { card_id: r.card_id } : {}),
+        ...(accountsReady && r.account_id !== undefined ? { account_id: r.card_id ? null : r.account_id } : {}),
       };
       let id = r.id;
       if (id) {
@@ -564,7 +600,7 @@ export function DataProvider({
       }
       await load(month);
     },
-    [cards, load, month, needsMigration, toast],
+    [cards, load, month, needsMigration, accountsReady, toast],
   );
 
   const deleteRecurring = useCallback(
@@ -580,7 +616,12 @@ export function DataProvider({
   const saveCard: Store["saveCard"] = useCallback(
     async (c) => {
       const db = supabase();
-      const body = { name: c.name.trim(), color: c.color || "#7c5cff", due_day: c.due_day };
+      const body = {
+        name: c.name.trim(),
+        color: c.color || "#7c5cff",
+        due_day: c.due_day,
+        ...(accountsReady && c.account_id !== undefined ? { account_id: c.account_id } : {}),
+      };
       if (c.id) {
         const before = cards.find((x) => x.id === c.id);
         const { error } = await db.from("cards").update(body).eq("id", c.id);
@@ -606,7 +647,7 @@ export function DataProvider({
       toast("Tarjeta guardada ✓");
       await load(month);
     },
-    [cards, load, month, toast],
+    [cards, load, month, accountsReady, toast],
   );
 
   const deleteCard = useCallback(
@@ -817,6 +858,9 @@ export function DataProvider({
     purchases,
     splits,
     needsMigration,
+    accounts,
+    accountsReady,
+    defaultAccount,
     addTx,
     updateTx,
     deleteTx,

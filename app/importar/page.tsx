@@ -38,7 +38,7 @@ const FILTERS: { id: Action | "todos"; label: string }[] = [
 
 export default function Importar() {
   const router = useRouter();
-  const { categories, recurring, cards, needsMigration, reload, saveCard, setMonth, toast } = useStore();
+  const { categories, recurring, cards, needsMigration, accountsReady, reload, saveCard, setMonth, toast } = useStore();
   const catIndex = useCategoryIndex();
   const [text, setText] = useState("");
   const [file, setFile] = useState<ImportFile | null>(null);
@@ -234,7 +234,9 @@ export default function Importar() {
 
       // 7. Patrimonio: actualiza lo que ya existe y crea lo nuevo
       for (const [i, a] of chosenAssets.entries()) {
-        const row: Partial<ReturnType<typeof assetRow>> = assetRow(a.item);
+        const row: Partial<ReturnType<typeof assetRow>> & { balance_at?: string } = assetRow(a.item);
+        // Un saldo de cuenta importado cuenta como confirmado: desde ahí se suman y restan los movimientos
+        if (accountsReady && a.item.tipo === "cuenta") row.balance_at = row.updated_at;
         if (a.existing) {
           // Lo que el archivo no trae se deja como estaba
           if (a.item.precio === undefined) {
