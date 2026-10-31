@@ -13,6 +13,7 @@ import { usePrelaunch } from "./LaunchGate";
 import { MinusIcon, PlusIcon, TrashIcon } from "./Icons";
 import { CuotasVerdict } from "./CuotasCalc";
 import { BudgetHint, useBudgetCheck } from "./Techos";
+import { suggestCategory, useCategoryIndex } from "@/lib/autoCategoria";
 
 const QUICK = [1, 3, 6, 12, 18, 24];
 const fmt = (n: number) => new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 }).format(n);
@@ -41,6 +42,22 @@ export function PurchaseSheet() {
     return minPeriod && p < minPeriod ? minPeriod : p;
   });
   const [catId, setCatId] = useState<string | null>(editing?.category_id ?? null);
+  // Categoría automática según la descripción, salvo que ya hayas elegido una
+  const { categories } = useStore();
+  const index = useCategoryIndex();
+  const [catTouched, setCatTouched] = useState(!!editing);
+  const [autoCat, setAutoCat] = useState(false);
+  const suggestion = useMemo(() => (desc.trim() ? suggestCategory(index, desc, "expense", categories) : null), [index, desc, categories]);
+  useEffect(() => {
+    if (catTouched) return;
+    if (suggestion) {
+      setCatId(suggestion.categoryId);
+      setAutoCat(true);
+    } else if (autoCat) {
+      setCatId(null);
+      setAutoCat(false);
+    }
+  }, [suggestion, catTouched, autoCat]);
   const [date, setDate] = useState(editing?.purchased_on ?? todayISO());
   const [shares, setShares] = useState<SplitShare[]>(() =>
     editing ? splits.filter((x) => x.purchase_id === editing.id).map((x) => ({ name: x.name, amount: x.amount, settled_on: x.settled_on })) : [],
@@ -252,7 +269,16 @@ export function PurchaseSheet() {
 
         <div className="grid gap-1.5">
           <span className="text-sm text-muted">Categoría</span>
-          <CategoryChips kind="expense" value={catId} onChange={setCatId} />
+          <CategoryChips
+            kind="expense"
+            value={catId}
+            onChange={(id) => {
+              setCatId(id);
+              setCatTouched(id !== null);
+              setAutoCat(false);
+            }}
+            suggestedId={autoCat ? catId : null}
+          />
           {check && <BudgetHint check={check} amount={total} date={date} />}
         </div>
 

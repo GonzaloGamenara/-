@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { installmentAmounts, nextPaymentPeriod } from "@/lib/cards";
@@ -9,6 +9,7 @@ import { Sheet } from "./Sheet";
 import { CategoryChips } from "./CategoryChips";
 import { BackspaceIcon, CardIcon, SplitIcon, TrashIcon } from "./Icons";
 import { BudgetHint, useBudgetCheck } from "./Techos";
+import { completeNote, suggestCategory, useCategoryIndex } from "@/lib/autoCategoria";
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ",", "0", "⌫"] as const;
 type Mode = "expense" | "income";
@@ -54,6 +55,31 @@ export function QuickAdd() {
   const dateRef = useRef<HTMLInputElement>(null);
 
   const kind = mode;
+
+  // Categoría automática: mientras escribís la nota se elige sola, salvo que ya hayas elegido una
+  const index = useCategoryIndex();
+  const [catTouched, setCatTouched] = useState(!!editing);
+  const [autoCat, setAutoCat] = useState(false);
+  const suggestion = useMemo(() => (note.trim() ? suggestCategory(index, note, kind, categories) : null), [index, note, kind, categories]);
+  const completions = useMemo(
+    () => (note.trim().length >= 2 ? completeNote(index, note, kind, categories) : []),
+    [index, note, kind, categories],
+  );
+  useEffect(() => {
+    if (catTouched) return;
+    if (suggestion) {
+      setCatId(suggestion.categoryId);
+      setAutoCat(true);
+    } else if (autoCat) {
+      setCatId(null);
+      setAutoCat(false);
+    }
+  }, [suggestion, catTouched, autoCat]);
+  const pickCategory = (id: string | null) => {
+    setCatId(id);
+    setCatTouched(id !== null);
+    setAutoCat(false);
+  };
 
   // Si la categoría elegida no es del tipo actual, se descarta
   useEffect(() => {
@@ -220,12 +246,34 @@ export function QuickAdd() {
           onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), noteRef.current?.blur())}
           className="mx-auto mt-2 w-full max-w-xs rounded-full bg-transparent px-4 py-2 text-center text-[15px] transition-colors placeholder:text-muted/80 focus:bg-inset"
         />
+        {completions.length > 0 && (
+          <div className="hide-scroll -mx-5 mt-1.5 flex justify-center gap-1.5 overflow-x-auto px-5">
+            {completions.map((c) => {
+              const cat = categories.find((x) => x.id === c.categoryId);
+              return (
+                <button
+                  key={c.note}
+                  type="button"
+                  onClick={() => {
+                    setNote(c.note);
+                    setCatId(c.categoryId);
+                    setCatTouched(false);
+                    setAutoCat(true);
+                  }}
+                  className="press flex shrink-0 items-center gap-1 rounded-full bg-inset px-3 py-1.5 text-xs font-medium"
+                >
+                  {cat?.emoji} {c.note}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
 
       {/* Categoría */}
       <div className="mb-3">
-        <CategoryChips kind={kind} value={catId} onChange={setCatId} />
+        <CategoryChips kind={kind} value={catId} onChange={pickCategory} suggestedId={autoCat ? catId : null} />
       </div>
 
       {kind === "expense" && check && (

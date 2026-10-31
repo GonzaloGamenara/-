@@ -134,6 +134,11 @@ export function AssetForm({
               <label className="grid gap-1 text-sm text-muted">
                 {kind === "cuenta" ? "Saldo" : "Valor hoy"}
                 <input className={field} inputMode="decimal" value={balance} onChange={(e) => setBalance(e.target.value)} placeholder="Ej: 250.000 (o -28.780 si está en negativo)" />
+                {balance.trim() && (
+                  <span className="num text-xs text-muted">
+                    = {currency === "USD" ? `US$ ${new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 }).format(parseSigned(balance))}` : money(parseSigned(balance))}
+                  </span>
+                )}
               </label>
               <div className="grid grid-cols-2 rounded-xl bg-inset p-1 text-xs font-semibold">
                 {(["ARS", "USD"] as const).map((c) => (

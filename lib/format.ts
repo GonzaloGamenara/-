@@ -40,7 +40,10 @@ export function parseAmount(input: string): number {
   const t = input.trim().replace(/[^\d.,]/g, "");
   if (!t) return 0;
   let normalized: string;
-  if (t.includes(",")) normalized = t.replace(/\./g, "").replace(",", ".");
+  // Un separador seguido de exactamente 3 dígitos al final son miles, no decimales:
+  // "2819,681" → 2819681 · "2.819,681" → 2819681 (ningún monto tiene 3 decimales)
+  if (/[.,]\d{3}$/.test(t) && !/[.,]\d{1,2}$/.test(t)) normalized = t.replace(/[.,]/g, "");
+  else if (t.includes(",")) normalized = t.replace(/\./g, "").replace(",", ".");
   else if (/^\d{1,3}(\.\d{3})+$/.test(t)) normalized = t.replace(/\./g, "");
   else normalized = t;
   const n = Number(normalized);

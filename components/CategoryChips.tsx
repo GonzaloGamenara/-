@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import type { Category, Kind } from "@/lib/types";
 import { CategoryForm, CATEGORY_COLORS } from "./CategoryForm";
@@ -10,14 +10,22 @@ export function CategoryChips({
   kind,
   value,
   onChange,
+  suggestedId = null,
 }: {
   kind: Kind;
   value: string | null;
   onChange: (id: string | null) => void;
+  /** Categoría elegida sola por la nota: se marca como sugerida */
+  suggestedId?: string | null;
 }) {
   const { categories, txs, prevTxs, saveCategory } = useStore();
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState<Partial<Category> | null>(null);
+  const chipRefs = useRef(new Map<string, HTMLButtonElement>());
+  // Si la categoría se elige sola y quedó fuera de la vista, la traemos
+  useEffect(() => {
+    if (value) chipRefs.current.get(value)?.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" });
+  }, [value]);
   const ordered = useMemo(() => {
     const uses = new Map<string, number>();
     for (const t of [...txs, ...prevTxs]) if (t.category_id) uses.set(t.category_id, (uses.get(t.category_id) ?? 0) + 1);
@@ -35,6 +43,10 @@ export function CategoryChips({
             <button
               type="button"
               key={c.id}
+              ref={(el) => {
+                if (el) chipRefs.current.set(c.id, el);
+                else chipRefs.current.delete(c.id);
+              }}
               onClick={() => (editMode ? setForm(c) : onChange(on ? null : c.id))}
               aria-pressed={on}
               className={`press relative flex flex-col items-center gap-0.5 rounded-2xl border px-1 py-2 text-[11px] font-medium leading-tight ${
@@ -43,6 +55,11 @@ export function CategoryChips({
               style={on && !editMode ? { background: c.color } : undefined}
             >
               {editMode && <span className="absolute right-1.5 top-1 text-[10px] opacity-70">✎</span>}
+              {!editMode && on && c.id === suggestedId && (
+                <span className="absolute left-1.5 top-1 text-[10px]" title="Sugerida por la nota" aria-label="sugerida">
+                  ✨
+                </span>
+              )}
               <span className="text-xl">{c.emoji}</span>
               <span className="line-clamp-2 min-h-[2.5em] w-full text-center leading-[1.25] [overflow-wrap:normal] [word-break:keep-all]">
                 {c.name}

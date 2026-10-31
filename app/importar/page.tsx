@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { dayLabel, money, uid } from "@/lib/format";
 import { CATEGORY_COLORS } from "@/components/CategoryForm";
 import { KIND_EMOJI } from "@/lib/patrimonio";
+import { suggestCategory, useCategoryIndex } from "@/lib/autoCategoria";
 import { ChevronLeft } from "@/components/Icons";
 import {
   importRange,
@@ -38,6 +39,7 @@ const FILTERS: { id: Action | "todos"; label: string }[] = [
 export default function Importar() {
   const router = useRouter();
   const { categories, recurring, cards, needsMigration, reload, saveCard, setMonth, toast } = useStore();
+  const catIndex = useCategoryIndex();
   const [text, setText] = useState("");
   const [file, setFile] = useState<ImportFile | null>(null);
   const [rows, setRows] = useState<PlannedRow[] | null>(null);
@@ -82,7 +84,7 @@ export default function Importar() {
       }
       setFile(parsed);
       setAssetPlan(planAssets(parsed, assets));
-      setRows(planImport(parsed, existing, recurring, categories));
+      setRows(planImport(parsed, existing, recurring, categories, (note, kind) => suggestCategory(catIndex, note, kind, categories)?.categoryId ?? null));
       setChanges(planChanges(parsed, existing, categories));
       setMerges(planMerges(parsed, categories));
       setCardChanges(planCards(parsed, cards));
@@ -494,7 +496,8 @@ function Row({ r, onToggle }: { r: PlannedRow; onToggle: () => void }) {
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-medium">{r.row.nota || cat?.name || r.newCategory || "Sin categoría"}</span>
         <span className="block truncate text-xs text-muted">
-          {cat?.name ?? (r.newCategory ? `${r.newCategory} (nueva)` : "Sin categoría")} · {dayLabel(r.row.fecha)}
+          {cat?.name ?? (r.newCategory ? `${r.newCategory} (nueva)` : "Sin categoría")}
+          {r.suggested && " ✨ sugerida"} · {dayLabel(r.row.fecha)}
         </span>
         {r.action === "repetido" && r.match && (
           <span className="mt-0.5 line-clamp-2 block text-[11px] text-amber-500">

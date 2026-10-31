@@ -102,6 +102,8 @@ export interface PlannedRow {
   /** Categoría existente o nombre de la que se va a crear */
   category: Category | null;
   newCategory: string | null;
+  /** La categoría no venía en el archivo: se sugirió por la nota */
+  suggested?: boolean;
   action: Action;
   /** Movimiento ya cargado que coincide (repetido o el fijo del mes) */
   match: Transaction | null;
@@ -227,7 +229,14 @@ export function importRange(file: ImportFile) {
  * - "repetido": ya está cargado (mismo tipo, monto parecido, ±3 días) → se saltea
  * - "nuevo": se agrega
  */
-export function planImport(file: ImportFile, existing: Transaction[], recurring: Recurring[], categories: Category[]): PlannedRow[] {
+export function planImport(
+  file: ImportFile,
+  existing: Transaction[],
+  recurring: Recurring[],
+  categories: Category[],
+  /** Sugiere una categoría por la nota cuando el archivo no la trae */
+  suggest?: (note: string, kind: Kind) => string | null,
+): PlannedRow[] {
   const used = new Set<string>();
   const catByName = new Map(categories.map((c) => [`${c.kind}:${norm(c.name)}`, c]));
 
@@ -238,7 +247,8 @@ export function planImport(file: ImportFile, existing: Transaction[], recurring:
     const kind: Kind = row.monto < 0 ? "expense" : "income";
     const amount = Math.abs(row.monto);
     const catName = row.categoria?.trim() || null;
-    const category = catName ? (catByName.get(`${kind}:${norm(catName)}`) ?? null) : null;
+    const suggestedId = !catName && row.nota && suggest ? suggest(row.nota, kind) : null;
+    const category = catName ? (catByName.get(`${kind}:${norm(catName)}`) ?? null) : (categories.find((c) => c.id === suggestedId) ?? null);
     const period = row.fecha.slice(0, 7);
     const base = {
       key,
@@ -247,6 +257,7 @@ export function planImport(file: ImportFile, existing: Transaction[], recurring:
       amount,
       category,
       newCategory: catName && !category ? catName : null,
+      suggested: !catName && !!category,
     };
 
     // ¿Confirma un fijo? Por nombre, y con un monto razonablemente parecido
