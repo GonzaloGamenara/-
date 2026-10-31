@@ -66,7 +66,7 @@ export default function Fijos() {
     <div className="grid gap-5">
       <PageHeader
         title="Fijos"
-        subtitle="Todo lo que entra y sale cada mes: sueldo, alquiler, suscripciones y cuotas."
+        subtitle="Lo que entra y sale todos los meses"
         right={
           <div className="flex items-center gap-1.5">
           <EyeToggle />

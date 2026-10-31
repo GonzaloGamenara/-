@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { useShared } from "@/lib/sharedStore";
 import { monthStats } from "@/lib/stats";
@@ -20,6 +20,7 @@ import { RachaBar } from "@/components/Racha";
 export default function Home() {
   const { month, txs, prevTxs, categories, recurring, loading, openSheet, splits, cards } = useStore();
   const { myNet, groups } = useShared();
+  const [allCats, setAllCats] = useState(false);
   // Saldo con otras personas: compras divididas + cuentas compartidas
   const owed = Math.round((splits.filter((x) => !x.settled_on).reduce((a, x) => a + x.amount, 0) + myNet) * 100) / 100;
   const sharedTxIds = useMemo(() => new Set(groups.map((g) => g.transaction_id).filter((x): x is string => !!x)), [groups]);
@@ -112,15 +113,15 @@ export default function Home() {
               </div>
             </div>
 
-            {s.isCurrent && (s.committed > 0 || s.projected !== null) && (
+            {s.isCurrent && (s.committed > 0 || (s.projected !== null && daysLeft > 0)) && (
               <p className="relative mt-4 rounded-2xl bg-inset px-3.5 py-2.5 text-sm text-muted">
                 {s.committed > 0 && (
                   <>
                     Ya tenés <b className="num text-fg">{money(s.committed)}</b> comprometidos para lo que queda del mes
-                    {s.projected === null ? "." : " · "}
+                    {s.projected === null || daysLeft === 0 ? "." : " · "}
                   </>
                 )}
-                {s.projected !== null && (
+                {s.projected !== null && daysLeft > 0 && (
                   <>
                     con tu ritmo de día a día, cerrarías en <b className="num text-fg">{moneyRound(s.projected)}</b>.
                   </>
@@ -128,6 +129,9 @@ export default function Home() {
               </p>
             )}
           </section>
+
+          {/* Techos: lo más accionable del mes, justo después del resumen */}
+          <TechosCard delay={60} />
 
           {/* Métricas */}
           <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -164,8 +168,6 @@ export default function Home() {
               hint={s.isCurrent ? (daysLeft > 0 ? `en los próximos ${daysLeft} días` : "nada más este mes") : "del total del mes"}
             />
           </section>
-
-          <TechosCard delay={205} />
 
           {Math.abs(owed) >= 1 && (
             <Link href="/dividir" className="glass press rise flex items-center justify-between rounded-3xl px-4 py-3.5" style={{ animationDelay: "210ms" }}>
@@ -229,7 +231,7 @@ export default function Home() {
                 </ul>
               </div>
               <ul className="mt-5 grid gap-0.5">
-                {s.expenseCats.map((c) => (
+                {(allCats ? s.expenseCats : s.expenseCats.slice(0, 5)).map((c) => (
                   <li key={c.id ?? "none"}>
                     <Link href={c.id ? `/movimientos?cat=${c.id}` : "/movimientos"} className="press block rounded-2xl px-2 py-2.5 hover:bg-surface">
                       <div className="flex items-center gap-3">
@@ -252,6 +254,11 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
+              {s.expenseCats.length > 5 && (
+                <button onClick={() => setAllCats((v) => !v)} className="press mt-2 w-full rounded-2xl bg-inset py-2.5 text-sm font-semibold text-muted">
+                  {allCats ? "Ver menos" : `Ver las ${s.expenseCats.length} categorías`}
+                </button>
+              )}
             </section>
           )}
 

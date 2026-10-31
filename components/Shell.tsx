@@ -40,15 +40,15 @@ export function Shell({ children }: { children: ReactNode }) {
   }, [openSheet, prelaunch]);
 
   return (
-    <div className="mx-auto min-h-dvh w-full max-w-2xl px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
+    <div className="mx-auto min-h-dvh w-full max-w-2xl px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(max(0.5rem,env(safe-area-inset-top))+0.5rem)]">
       {pendingCount > 0 && (
         <div className="fade-in mb-3 flex items-center gap-2 rounded-2xl border border-line bg-surface px-3 py-2 text-sm text-muted">
           <CloudOffIcon width={16} height={16} />
           {pendingCount} movimiento{pendingCount > 1 ? "s" : ""} esperando conexión
         </div>
       )}
-      {/* Fondo detrás de la barra de estado del iPhone (el contenido no pasa por debajo de la hora) */}
-      <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-30 h-[env(safe-area-inset-top)] bg-bg/85 backdrop-blur-xl" />
+      {/* Fondo detrás de la barra de estado del iPhone: sólido (el desenfoque ensuciaba el encabezado en iOS) */}
+      <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-30 h-[env(safe-area-inset-top)] bg-bg" />
       {prelaunch && !blocked && <PrelaunchBanner />}
       {blocked ? <PrelaunchCard /> : children}
 

@@ -39,38 +39,20 @@ export default function Ajustes() {
 
       <MigrationNotice />
 
+      <Group title="Tu plata">
+        <Row href="/patrimonio" icon="🏦" title="Patrimonio" sub="Cuentas e inversiones, con precios al día" />
+        <Row href="/techos" icon="🎯" title="Techos" sub="Cuánto querés gastar por categoría" />
+      </Group>
+
+      <Group title="Herramientas">
+        <Row href="/dividir" icon={<SplitIcon width={20} height={20} />} title="Dividir cuentas" sub="Quién pagó qué y quién le debe a quién" />
+        <Row href="/importar" icon="📥" title="Importar movimientos" sub="Desde un archivo, sin duplicar lo que ya cargaste" />
+      </Group>
+
+      <h2 className="-mb-3 px-1 text-xs font-semibold uppercase tracking-wide text-muted">Tu cuenta</h2>
       <section className="glass rise rounded-3xl p-4">
         <AliasField />
       </section>
-
-      <Link href="/dividir" className="glass press rise flex items-center gap-3 rounded-3xl px-4 py-3.5">
-        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset">
-          <SplitIcon width={20} height={20} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block font-medium">Dividir cuentas</span>
-          <span className="block truncate text-xs text-muted">Quién pagó qué y quién le debe a quién</span>
-        </span>
-        <ChevronRight width={18} height={18} className="shrink-0 text-muted" />
-      </Link>
-
-      <Link href="/techos" className="glass press rise -mt-2 flex items-center gap-3 rounded-3xl px-4 py-3.5">
-        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">🎯</span>
-        <span className="min-w-0 flex-1">
-          <span className="block font-medium">Techos</span>
-          <span className="block truncate text-xs text-muted">Cuánto querés gastar por categoría</span>
-        </span>
-        <ChevronRight width={18} height={18} className="shrink-0 text-muted" />
-      </Link>
-
-      <Link href="/importar" className="glass press rise -mt-2 flex items-center gap-3 rounded-3xl px-4 py-3.5">
-        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">📥</span>
-        <span className="min-w-0 flex-1">
-          <span className="block font-medium">Importar movimientos</span>
-          <span className="block truncate text-xs text-muted">Desde un archivo, sin duplicar lo que ya cargaste</span>
-        </span>
-        <ChevronRight width={18} height={18} className="shrink-0 text-muted" />
-      </Link>
 
       <section className="glass rise overflow-hidden rounded-3xl">
         {(["expense", "income"] as const).map((kind) => {
@@ -146,5 +128,27 @@ export default function Ajustes() {
         />
       )}
     </div>
+  );
+}
+
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="grid gap-2">
+      <h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">{title}</h2>
+      <div className="glass rise grid divide-y divide-line overflow-hidden rounded-3xl">{children}</div>
+    </section>
+  );
+}
+
+function Row({ href, icon, title, sub }: { href: string; icon: React.ReactNode; title: string; sub: string }) {
+  return (
+    <Link href={href} className="press flex items-center gap-3 px-4 py-3.5">
+      <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-medium">{title}</span>
+        <span className="block truncate text-xs text-muted">{sub}</span>
+      </span>
+      <ChevronRight width={18} height={18} className="shrink-0 text-muted" />
+    </Link>
   );
 }

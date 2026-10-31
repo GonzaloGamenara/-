@@ -38,13 +38,11 @@ export function BudgetBar({ s, expectedPct }: { s: BudgetStatus; expectedPct?: n
   const color = TONE[s.level];
   return (
     <div className="grid gap-1.5">
+      {/* Nombre completo y % arriba; los montos van abajo para que nada se corte */}
       <div className="flex items-baseline gap-2 text-sm">
         <span className="shrink-0">{emojis || "🎯"}</span>
         <span className="min-w-0 flex-1 truncate font-medium">{s.cfg.name}</span>
-        <span className="num shrink-0 text-xs text-muted">
-          <b className="text-fg">{money(s.spent)}</b> de {money(s.cfg.monthly)}
-        </span>
-        <span className="num w-10 shrink-0 text-right text-xs font-semibold" style={{ color }}>
+        <span className="num shrink-0 text-sm font-semibold" style={{ color }}>
           {Math.round(s.pct * 100)}%
         </span>
       </div>
@@ -61,26 +59,27 @@ export function BudgetBar({ s, expectedPct }: { s: BudgetStatus; expectedPct?: n
           <div className="absolute inset-y-0 w-0.5 bg-fg/40" style={{ left: `${expectedPct * 100}%` }} title="Ritmo parejo a hoy" />
         )}
       </div>
-      {(s.week || s.committed > 0 || s.excesses.length > 0 || s.level === "over") && (
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted">
+      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted">
+        <span className="num">
+          <b className="text-fg">{money(s.spent)}</b> de {money(s.cfg.monthly)}
           {s.level === "over" ? (
-            <span className="font-semibold text-exp">Te pasaste {money(s.spent - s.cfg.monthly)}</span>
+            <b className="text-exp"> · +{money(s.spent - s.cfg.monthly)}</b>
           ) : (
-            <span>Te quedan {money(s.cfg.monthly - s.spent)}</span>
+            <> · quedan {money(s.cfg.monthly - s.spent)}</>
           )}
-          {s.week && (
-            <span className={s.week.spent > s.cfg.weekly! ? "font-semibold text-exp" : ""}>
-              Semana: {money(s.week.spent)} de {money(s.cfg.weekly!)}
-            </span>
-          )}
-          {s.committed > 0 && <span>+{money(s.committed)} de fijos que vienen</span>}
-          {s.excesses.length > 0 && (
-            <span className="font-semibold text-exp">
-              {s.excesses.length} {s.excesses.length === 1 ? "exceso" : "excesos"}
-            </span>
-          )}
-        </div>
-      )}
+        </span>
+        {s.week && (
+          <span className={s.week.spent > s.cfg.weekly! ? "font-semibold text-exp" : ""}>
+            Semana: {money(s.week.spent)} de {money(s.cfg.weekly!)}
+          </span>
+        )}
+        {s.committed > 0 && <span>+{money(s.committed)} de fijos que vienen</span>}
+        {s.excesses.length > 0 && (
+          <span className="font-semibold text-exp">
+            {s.excesses.length} {s.excesses.length === 1 ? "exceso" : "excesos"}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -127,6 +126,7 @@ export function TechosCard({ delay = 0 }: { delay?: number }) {
         </b>
         {isCurrent ? (left > 0 ? ` · faltan ${left} ${left === 1 ? "día" : "días"}` : " · último día") : ` · ${monthLabel(month).split(" ")[0].toLowerCase()} cerrado`}
       </p>
+      <p className="-mt-3 mb-4 text-[11px] text-muted">Las compras con tarjeta cuentan el día que compraste, no cuando se pagan.</p>
       <ul className="grid gap-4">
         {statuses.map((s) => (
           <li key={s.cfg.id}>
