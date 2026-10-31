@@ -14,6 +14,7 @@ import { DayBars, Donut, StackBar } from "@/components/charts";
 import { TxRow } from "@/components/TxRow";
 import { ArrowUpRight } from "@/components/Icons";
 import { HomeShortcuts } from "@/components/HomeShortcuts";
+import { TechosCard } from "@/components/Techos";
 
 export default function Home() {
   const { month, txs, prevTxs, categories, recurring, loading, openSheet, splits, cards } = useStore();
@@ -160,6 +161,8 @@ export default function Home() {
               hint={s.isCurrent ? (daysLeft > 0 ? `en los próximos ${daysLeft} días` : "nada más este mes") : "del total del mes"}
             />
           </section>
+
+          <TechosCard delay={205} />
 
           {Math.abs(owed) >= 1 && (
             <Link href="/dividir" className="glass press rise flex items-center justify-between rounded-3xl px-4 py-3.5" style={{ animationDelay: "210ms" }}>

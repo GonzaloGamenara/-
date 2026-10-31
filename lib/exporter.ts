@@ -7,6 +7,8 @@ import { txColumns } from "./store";
 import { addMonths, currentMonth, monthEnd, monthStart } from "./format";
 import { installmentAmounts, nextPaymentPeriod, remaining } from "./cards";
 import { fetchPrices, loadPatrimonio } from "./patrimonio";
+import { budgetItems, budgetStatus, configFor, daysLabel, toConfig, type BudgetConfig } from "./techos";
+import { launchMonth } from "./launch";
 import { groupBalances, type SharedExpense, type SharedGroup, type SharedMember, type SharedPayment } from "./shared";
 import { mine, type Card, type Category, type Purchase, type Recurring, type Split, type Transaction } from "./types";
 
@@ -179,6 +181,7 @@ export async function buildDataset(range: Range, alias: string) {
   });
 
   const patrimonio = await patrimonioSection();
+  const techos = await techosSection(txs, purchases, splits, categories, months);
 
   return {
     formato: "gastos-app/v1",
@@ -197,6 +200,7 @@ export async function buildDataset(range: Range, alias: string) {
     resumen_mensual: monthly,
     fijos: fixed,
     tarjetas: cardInfo,
+    techos,
     patrimonio,
     cuentas_compartidas: shared,
     te_deben_por_divisiones: debts,
@@ -205,6 +209,64 @@ export async function buildDataset(range: Range, alias: string) {
 }
 
 export type Dataset = Awaited<ReturnType<typeof buildDataset>>;
+
+/**
+ * Techos por mes: lo gastado en cada categoría o grupo con techo (tu parte; tarjetas en la fecha de
+ * compra, una cuota por mes) contra el techo que regía ese mes (la foto mensual si existe).
+ */
+async function techosSection(txs: Transaction[], purchases: Purchase[], splits: Split[], categories: Category[], months: string[]) {
+  try {
+    const db = supabase();
+    const [b, bc, s] = await Promise.all([
+      db.from("budgets").select("id,name,monthly,weekly,max_per_tx,allowed_days"),
+      db.from("budget_categories").select("budget_id,category_id"),
+      db.from("budget_snapshots").select("period,config"),
+    ]);
+    if (b.error) return [];
+    const links = (bc.data ?? []) as { budget_id: string; category_id: string }[];
+    const current = ((b.data ?? []) as Omit<BudgetConfig, "category_ids">[]).map((x) =>
+      toConfig({ ...x, category_ids: links.filter((l) => l.budget_id === x.id).map((l) => l.category_id) }),
+    );
+    const snaps = Object.fromEntries(((s.data ?? []) as { period: string; config: BudgetConfig[] }[]).map((r) => [r.period, r.config]));
+    const items = budgetItems(
+      txs.map((t) => ({ ...t, amount: num(t.amount), my_share: t.my_share == null ? null : num(t.my_share) })),
+      purchases,
+      splits,
+    );
+    const cm = currentMonth();
+    const name = (id: string) => categories.find((c) => c.id === id)?.name ?? "?";
+    return months
+      .filter((m) => m >= launchMonth() && m <= cm)
+      .map((mes) => {
+        const cfgs = configFor(mes, current, snaps, cm);
+        const grupos = cfgs
+          .map((cfg) => budgetStatus(cfg, items, mes))
+          .sort((a, b2) => b2.pct - a.pct)
+          .map((st) => ({
+            grupo: st.cfg.name,
+            categorias: st.cfg.category_ids.map(name),
+            techo: st.cfg.monthly,
+            techo_semanal: st.cfg.weekly,
+            maximo_por_movimiento: st.cfg.max_per_tx,
+            dias_permitidos: st.cfg.allowed_days?.length ? daysLabel(st.cfg.allowed_days) : null,
+            gastado: st.spent,
+            pct: Math.round(st.pct * 1000) / 10,
+            excesos: st.excesses.length,
+            detalle_excesos: st.excesses.map((e) => ({ fecha: e.date, monto: e.amount, detalle: e.label, motivo: e.reasons.join("; ") })),
+          }));
+        return {
+          mes,
+          techo_de_la_foto_mensual: !!snaps[mes] || mes === cm,
+          total_techo: r2(grupos.reduce((a, g) => a + g.techo, 0)),
+          total_gastado: r2(grupos.reduce((a, g) => a + g.gastado, 0)),
+          grupos,
+        };
+      })
+      .filter((m) => m.grupos.length);
+  } catch {
+    return [];
+  }
+}
 
 /** Cuentas e inversiones valuadas hoy (null si todavía no cargaste nada o falta la migración 005) */
 async function patrimonioSection() {
@@ -273,6 +335,22 @@ export function toMarkdown(d: Dataset) {
     L.push("|---|---|---:|---:|---|---|---|");
     for (const f of d.fijos) L.push(`| ${f.nombre} | ${f.tipo} | ${$(f.monto_mensual)} | ${f.dia} | ${f.categoria} | ${f.tarjeta ?? "–"} | ${f.activo ? "sí" : "no"} |`);
     L.push("");
+  }
+
+  if (d.techos.length) {
+    L.push("## Techos");
+    L.push("Gastado = tu parte; las compras con tarjeta cuentan en la fecha de compra (en cuotas, una cuota por mes). Excesos = movimientos que superaron el máximo por movimiento o cayeron en un día no permitido.");
+    L.push("");
+    for (const m of d.techos) {
+      L.push(`### ${m.mes} · ${$(m.total_gastado)} de ${$(m.total_techo)}`);
+      L.push("| Categoría/grupo | Techo | Gastado | % | Excesos |");
+      L.push("|---|---:|---:|---:|---:|");
+      for (const g of m.grupos) {
+        const label = g.categorias.length > 1 || g.categorias[0] !== g.grupo ? `${g.grupo} (${g.categorias.join(", ")})` : g.grupo;
+        L.push(`| ${label} | ${$(g.techo)} | ${$(g.gastado)} | ${g.pct.toLocaleString("es-AR")}% | ${g.excesos} |`);
+      }
+      L.push("");
+    }
   }
 
   if (d.patrimonio) {

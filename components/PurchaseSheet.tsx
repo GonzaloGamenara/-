@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore, type SplitShare } from "@/lib/store";
 import { installmentAmounts, nextPaymentPeriod } from "@/lib/cards";
 import { launchMonth } from "@/lib/launch";
@@ -12,6 +12,7 @@ import { SplitEditor, splitIsValid } from "./SplitEditor";
 import { usePrelaunch } from "./LaunchGate";
 import { MinusIcon, PlusIcon, TrashIcon } from "./Icons";
 import { CuotasVerdict } from "./CuotasCalc";
+import { BudgetHint, useBudgetCheck } from "./Techos";
 
 const QUICK = [1, 3, 6, 12, 18, 24];
 const fmt = (n: number) => new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 }).format(n);
@@ -56,8 +57,29 @@ export function PurchaseSheet() {
   const activeShares = splitOn ? shares : [];
   const valid = !!card && desc.trim().length > 0 && total > 0 && splitIsValid(total, activeShares);
 
+  // Techo: la cuota 1 cuenta en el mes de compra, con tu parte si está dividida.
+  // Un plan que ya venías pagando se compró antes: no se avisa.
+  const othersTotal = activeShares.reduce((a, x) => a + (x.amount > 0 ? x.amount : 0), 0);
+  const ratio = total > 0 ? Math.max(0, total - othersTotal) / total : 1;
+  const check = useBudgetCheck({
+    categoryId: catId,
+    date,
+    monthAmount: Math.round(perInstallment * ratio * 100) / 100,
+    eventAmount: Math.round(total * ratio * 100) / 100,
+    excludePurchaseId: editing?.id,
+    enabled: !started,
+  });
+  const needsConfirm = !!check && total > 0 && check.reasons.length > 0;
+  const [confirmed, setConfirmed] = useState(false);
+  useEffect(() => setConfirmed(false), [total, catId, date, n, ratio]);
+
   async function save() {
     if (!valid || !card) return;
+    if (needsConfirm && !confirmed) {
+      setConfirmed(true);
+      navigator.vibrate?.([10, 40, 10]);
+      return;
+    }
     setBusy(true);
     const ok = await savePurchase({
       id: editing?.id,
@@ -231,6 +253,7 @@ export function PurchaseSheet() {
         <div className="grid gap-1.5">
           <span className="text-sm text-muted">Categoría</span>
           <CategoryChips kind="expense" value={catId} onChange={setCatId} />
+          {check && <BudgetHint check={check} amount={total} date={date} />}
         </div>
 
         <label className="flex items-center justify-between gap-3 text-sm text-muted">
@@ -265,8 +288,12 @@ export function PurchaseSheet() {
               <TrashIcon width={20} height={20} />
             </button>
           )}
-          <button onClick={save} disabled={!valid || busy} className="press flex-1 rounded-2xl bg-exp py-4 font-semibold text-on-exp disabled:opacity-35">
-            {busy ? "Guardando…" : editing ? "Guardar cambios" : n > 1 ? `Guardar en ${n} cuotas` : "Guardar compra"}
+          <button
+            onClick={save}
+            disabled={!valid || busy}
+            className={`press flex-1 rounded-2xl bg-exp py-4 font-semibold text-on-exp disabled:opacity-35 ${needsConfirm && confirmed ? "ring-4 ring-exp/30" : ""}`}
+          >
+            {busy ? "Guardando…" : needsConfirm && confirmed ? "Guardar igual" : editing ? "Guardar cambios" : n > 1 ? `Guardar en ${n} cuotas` : "Guardar compra"}
           </button>
         </div>
       </div>

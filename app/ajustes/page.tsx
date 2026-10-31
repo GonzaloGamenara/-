@@ -54,6 +54,15 @@ export default function Ajustes() {
         <ChevronRight width={18} height={18} className="shrink-0 text-muted" />
       </Link>
 
+      <Link href="/techos" className="glass press rise -mt-2 flex items-center gap-3 rounded-3xl px-4 py-3.5">
+        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">🎯</span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-medium">Techos</span>
+          <span className="block truncate text-xs text-muted">Cuánto querés gastar por categoría</span>
+        </span>
+        <ChevronRight width={18} height={18} className="shrink-0 text-muted" />
+      </Link>
+
       <Link href="/importar" className="glass press rise -mt-2 flex items-center gap-3 rounded-3xl px-4 py-3.5">
         <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">📥</span>
         <span className="min-w-0 flex-1">

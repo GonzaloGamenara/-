@@ -15,7 +15,7 @@ const NAV = [
   { href: "/movimientos", label: "Movimientos", Icon: ListIcon, also: [] as string[] },
   null, // FAB
   { href: "/fijos", label: "Fijos", Icon: RepeatIcon, also: ["/tarjetas"] },
-  { href: "/ajustes", label: "Perfil", Icon: UserIcon, also: ["/dividir", "/importar"] },
+  { href: "/ajustes", label: "Perfil", Icon: UserIcon, also: ["/dividir", "/importar", "/techos"] },
 ] as const;
 
 const isActive = (path: string, item: { href: string; also: readonly string[] }) =>

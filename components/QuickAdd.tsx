@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { nextPaymentPeriod } from "@/lib/cards";
+import { installmentAmounts, nextPaymentPeriod } from "@/lib/cards";
 import { money, monthLabelCompact, toISO, todayISO } from "@/lib/format";
 import { Sheet } from "./Sheet";
 import { CategoryChips } from "./CategoryChips";
 import { BackspaceIcon, CardIcon, SplitIcon, TrashIcon } from "./Icons";
+import { BudgetHint, useBudgetCheck } from "./Techos";
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ",", "0", "⌫"] as const;
 type Mode = "expense" | "income";
@@ -84,7 +85,24 @@ export function QuickAdd() {
   const yesterday = toISO(new Date(Date.now() - 864e5));
   const editingShares = editing ? splits.filter((x) => x.transaction_id === editing.id) : [];
 
+  // Techo de la categoría: en cuotas, al mes de compra suma la cuota 1; en un gasto dividido, tu parte
+  const myPart = editing && editing.my_share != null && editing.amount > 0 ? amount * (Number(editing.my_share) / editing.amount) : amount;
+  const monthAmount = card && cuotas > 1 && amount > 0 ? installmentAmounts(amount, cuotas)[0] : myPart;
+  const check = useBudgetCheck({
+    categoryId: catId,
+    date,
+    monthAmount,
+    eventAmount: myPart,
+    excludeTxId: editing?.id,
+    enabled: kind === "expense",
+  });
+  // Un aviso rojo no bloquea: pide un segundo toque ("Guardar igual")
+  const needsConfirm = !!check && amount > 0 && check.reasons.length > 0;
+  const [confirmed, setConfirmed] = useState(false);
+  useEffect(() => setConfirmed(false), [amount, catId, date, payCard, cuotas]);
+
   const resetForNext = () => {
+    setConfirmed(false);
     setRaw("");
     setNote("");
     setFlash(true);
@@ -94,6 +112,11 @@ export function QuickAdd() {
 
   async function save() {
     if (!valid || busy) return;
+    if (needsConfirm && !confirmed) {
+      setConfirmed(true);
+      navigator.vibrate?.([10, 40, 10]);
+      return;
+    }
     if (editing) {
       await updateTx(editing.id, { kind, amount, category_id: catId, note: note.trim() || null, occurred_on: date });
       closeSheet();
@@ -204,6 +227,12 @@ export function QuickAdd() {
       <div className="mb-3">
         <CategoryChips kind={kind} value={catId} onChange={setCatId} />
       </div>
+
+      {kind === "expense" && check && (
+        <div className="mb-3">
+          <BudgetHint check={check} amount={amount} date={date} />
+        </div>
+      )}
 
       {/* Cómo pagaste (gasto o división) */}
       {!editing && kind === "expense" && cards.length > 0 && (
@@ -324,11 +353,13 @@ export function QuickAdd() {
         disabled={!valid || busy}
         className={`press w-full rounded-2xl py-4 text-base font-semibold transition-opacity disabled:opacity-35 ${
           mode === "income" ? "bg-inc text-on-inc" : "bg-exp text-on-exp"
-        }`}
+        } ${needsConfirm && confirmed ? "ring-4 ring-exp/30" : ""}`}
       >
         {busy
           ? "Guardando…"
-          : editing
+          : needsConfirm && confirmed
+            ? "Guardar igual"
+            : editing
             ? "Guardar cambios"
             : mode === "income"
               ? "Guardar ingreso"
