@@ -6,6 +6,7 @@ import { supabase } from "./supabase";
 import { txColumns } from "./store";
 import { addMonths, currentMonth, monthEnd, monthStart } from "./format";
 import { installmentAmounts, nextPaymentPeriod, remaining } from "./cards";
+import { fetchPrices, loadPatrimonio } from "./patrimonio";
 import { groupBalances, type SharedExpense, type SharedGroup, type SharedMember, type SharedPayment } from "./shared";
 import { mine, type Card, type Category, type Purchase, type Recurring, type Split, type Transaction } from "./types";
 
@@ -19,6 +20,7 @@ export const RANGE_LABEL: Record<Range, string> = {
 };
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
+const num = (v: unknown) => Number(v);
 
 function fromDate(range: Range) {
   const m = currentMonth();
@@ -58,7 +60,6 @@ export async function buildDataset(range: Range, alias: string) {
     all<SharedPayment>(db.from("shared_payments").select("*")),
   ]);
 
-  const num = (v: unknown) => Number(v);
   const catName = (id: string | null | undefined) => categories.find((c) => c.id === id)?.name ?? "Sin categoría";
   const cardName = (id: string | null | undefined) => cards.find((c) => c.id === id)?.name ?? null;
   const purchaseOf = (id: string | null | undefined) => purchases.find((p) => p.id === id);
@@ -177,6 +178,8 @@ export async function buildDataset(range: Range, alias: string) {
     };
   });
 
+  const patrimonio = await patrimonioSection();
+
   return {
     formato: "gastos-app/v1",
     generado: new Date().toISOString(),
@@ -194,6 +197,7 @@ export async function buildDataset(range: Range, alias: string) {
     resumen_mensual: monthly,
     fijos: fixed,
     tarjetas: cardInfo,
+    patrimonio,
     cuentas_compartidas: shared,
     te_deben_por_divisiones: debts,
     movimientos: movements,
@@ -202,10 +206,45 @@ export async function buildDataset(range: Range, alias: string) {
 
 export type Dataset = Awaited<ReturnType<typeof buildDataset>>;
 
+/** Cuentas e inversiones valuadas hoy (null si todavía no cargaste nada o falta la migración 005) */
+async function patrimonioSection() {
+  try {
+    const p = await loadPatrimonio((await fetchPrices()) ?? undefined);
+    if (p.missing || !p.assets.length) return null;
+    return {
+      cotizaciones_al: p.prices.at,
+      dolar_mep: p.prices.mep,
+      total: p.total,
+      en_cuentas: p.cash,
+      invertido: p.invested,
+      tarjetas_por_pagar: p.cardDebt,
+      neto: p.net,
+      activos: p.rows.map((r) => ({
+        nombre: r.asset.name,
+        tipo: r.asset.kind,
+        donde: r.asset.broker,
+        ticker: r.asset.ticker,
+        nominales: r.asset.quantity == null ? null : num(r.asset.quantity),
+        precio_por_nominal: r.price,
+        precio_en_vivo: r.asset.kind === "cedear" ? r.live : null,
+        variacion_dia_pct: r.change,
+        moneda: r.asset.currency,
+        saldo_en_su_moneda: r.asset.balance == null ? null : num(r.asset.balance),
+        tna_estimada_pct: r.asset.rate == null ? null : num(r.asset.rate),
+        valor_ars: r.value,
+        actualizado: r.asset.updated_at.slice(0, 10),
+      })),
+      evolucion_mensual: p.snapshots.map((x) => ({ mes: x.period, total: x.total, en_cuentas: x.cash, invertido: x.invested })),
+    };
+  } catch {
+    return null;
+  }
+}
+
 const $ = (n: number) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n).replace(/ /g, " ");
 
 /** Markdown con contexto para que un agente entienda tus finanzas de un vistazo. */
-export function toMarkdown(d: Dataset) {
+export function toMarkdown(d: Dataset, opts: { json?: boolean } = {}) {
   const L: string[] = [];
   L.push(`# Mis finanzas personales (${d.periodo.desde} a ${d.periodo.hasta})`);
   L.push("");
@@ -236,6 +275,25 @@ export function toMarkdown(d: Dataset) {
     L.push("");
   }
 
+  if (d.patrimonio) {
+    const p = d.patrimonio;
+    L.push("## Patrimonio (cuentas e inversiones, hoy)");
+    L.push(`- Neto (descontando tarjetas por pagar): ${$(p.neto)}${p.dolar_mep ? ` ≈ US$ ${Math.round(p.neto / p.dolar_mep).toLocaleString("es-AR")} (MEP ${$(p.dolar_mep)})` : ""}`);
+    L.push(`- En cuentas: ${$(p.en_cuentas)} · Invertido: ${$(p.invertido)} · Tarjetas por pagar: ${$(p.tarjetas_por_pagar)}`);
+    L.push("");
+    L.push("| Nombre | Tipo | Dónde | Detalle | Valor en $ |");
+    L.push("|---|---|---|---|---:|");
+    for (const a of p.activos) {
+      const det =
+        a.tipo === "cedear"
+          ? `${a.ticker} · ${a.nominales} × ${a.precio_por_nominal == null ? "?" : $(a.precio_por_nominal)}${a.precio_en_vivo ? "" : " (último precio guardado)"}`
+          : `${a.moneda === "USD" ? `US$ ${a.saldo_en_su_moneda}` : ""}${a.tna_estimada_pct ? ` TNA ${a.tna_estimada_pct}%` : ""} actualizado ${a.actualizado}`.trim();
+      L.push(`| ${a.nombre} | ${a.tipo} | ${a.donde ?? "–"} | ${det} | ${a.valor_ars == null ? "–" : $(a.valor_ars)} |`);
+    }
+    if (p.evolucion_mensual.length > 1) L.push("", "Evolución: " + p.evolucion_mensual.map((e) => `${e.mes} ${$(e.total)}`).join(" · "));
+    L.push("");
+  }
+
   if (d.tarjetas.length) {
     L.push("## Tarjetas");
     for (const c of d.tarjetas) {
@@ -263,11 +321,13 @@ export function toMarkdown(d: Dataset) {
     L.push(
       `| ${t.fecha} | ${t.tipo} | ${$(t.monto_propio)} | ${$(t.monto_pagado)} | ${t.categoria} | ${t.detalle.replace(/\|/g, "/")} | ${t.origen} | ${t.tarjeta ?? "–"} | ${t.cuota ?? "–"} |`,
     );
-  L.push("");
-  L.push("## Datos completos (JSON)");
-  L.push("```json");
-  L.push(JSON.stringify(d, null, 1));
-  L.push("```");
+  if (opts.json !== false) {
+    L.push("");
+    L.push("## Datos completos (JSON)");
+    L.push("```json");
+    L.push(JSON.stringify(d, null, 1));
+    L.push("```");
+  }
   return L.join("\n");
 }
 

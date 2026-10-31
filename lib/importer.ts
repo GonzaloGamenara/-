@@ -1,4 +1,4 @@
-import type { Card, Category, Kind, Recurring, Transaction } from "./types";
+import type { Asset, AssetKind, Card, Category, Kind, Recurring, Transaction } from "./types";
 import { parseISO } from "./format";
 
 /**
@@ -25,7 +25,13 @@ import { parseISO } from "./format";
  *     { "buscar": { "fecha": "2026-10-02", "monto": -16830 }, "categoria": "Delivery", "nota": "Subway" }
  *   ],
  *   "fusionar_categorias": [{ "de": "Uber", "a": "Transporte" }],
- *   "tarjetas": [{ "nombre": "Visa Galicia", "dia_de_pago": 9 }]
+ *   "tarjetas": [{ "nombre": "Visa Galicia", "dia_de_pago": 9 }],
+ *   "patrimonio": [
+ *     { "nombre": "Galicia", "tipo": "cuenta", "saldo": 2722819.14 },
+ *     { "nombre": "S&P 500", "tipo": "cedear", "ticker": "SPY", "nominales": 10, "precio": 20920, "donde": "Balanz" },
+ *     { "nombre": "Fondo LECAP", "tipo": "fondo", "saldo": 819681, "tna": 30, "donde": "Balanz" }
+ *   ]
+ * En "patrimonio", si ya existe algo con ese nombre (o ese ticker) se actualiza; si no, se crea.
  * "buscar" tiene que encontrar exactamente un movimiento (fecha exacta, monto con
  * signo y, si se pasan, un texto que contenga la nota y/o el nombre de su categoría).
  */
@@ -65,12 +71,25 @@ export interface ImportCard {
   dia_de_pago: number;
 }
 
+export interface ImportAsset {
+  nombre: string;
+  tipo: AssetKind;
+  saldo?: number;
+  moneda?: "ARS" | "USD";
+  ticker?: string;
+  nominales?: number;
+  precio?: number;
+  tna?: number;
+  donde?: string;
+}
+
 export interface ImportFile {
   categorias: ImportCategory[];
   movimientos: ImportRow[];
   cambios: ImportChange[];
   fusionar: ImportMerge[];
   tarjetas: ImportCard[];
+  patrimonio: ImportAsset[];
 }
 
 export type Action = "nuevo" | "repetido" | "fijo";
@@ -107,7 +126,8 @@ export function parseImport(text: string): ImportFile {
   const rawChanges = Array.isArray(obj.cambios) ? obj.cambios : [];
   const rawMerges = Array.isArray(obj.fusionar_categorias) ? obj.fusionar_categorias : [];
   const rawCards = Array.isArray(obj.tarjetas) ? obj.tarjetas : [];
-  if (!raw.length && !rawChanges.length && !rawMerges.length && !rawCards.length) {
+  const rawAssets = Array.isArray(obj.patrimonio) ? obj.patrimonio : [];
+  if (!raw.length && !rawChanges.length && !rawMerges.length && !rawCards.length && !rawAssets.length) {
     throw new Error("No encontré “movimientos” ni “cambios” para aplicar");
   }
   const movimientos: ImportRow[] = [];
@@ -161,7 +181,29 @@ export function parseImport(text: string): ImportFile {
       (c): c is ImportCard =>
         typeof c.nombre === "string" && Number.isInteger(c.dia_de_pago) && c.dia_de_pago! >= 1 && c.dia_de_pago! <= 31,
     );
-  return { categorias, movimientos, cambios, fusionar, tarjetas };
+  const optNum = (v: unknown) => (v === undefined || v === null || !Number.isFinite(Number(v)) ? undefined : Number(v));
+  const patrimonio: ImportAsset[] = rawAssets.map((r, i) => {
+    const x = r as Partial<Record<keyof ImportAsset, unknown>>;
+    const tipo = x.tipo as AssetKind;
+    if (typeof x.nombre !== "string" || !x.nombre.trim() || !["cuenta", "cedear", "fondo", "otro"].includes(tipo)) {
+      throw new Error(`Patrimonio ${i + 1}: falta el nombre o el tipo (cuenta, cedear, fondo u otro)`);
+    }
+    if (tipo === "cedear" && (typeof x.ticker !== "string" || !optNum(x.nominales))) {
+      throw new Error(`Patrimonio ${i + 1}: un CEDEAR necesita ticker y nominales`);
+    }
+    return {
+      nombre: x.nombre.trim(),
+      tipo,
+      saldo: optNum(x.saldo),
+      moneda: x.moneda === "USD" ? "USD" : "ARS",
+      ticker: typeof x.ticker === "string" ? x.ticker.trim().toUpperCase() : undefined,
+      nominales: optNum(x.nominales),
+      precio: optNum(x.precio),
+      tna: optNum(x.tna),
+      donde: typeof x.donde === "string" ? x.donde.trim() : undefined,
+    };
+  });
+  return { categorias, movimientos, cambios, fusionar, tarjetas, patrimonio };
 }
 
 const daysBetween = (a: string, b: string) => Math.abs(parseISO(a).getTime() - parseISO(b).getTime()) / 86_400_000;
@@ -364,4 +406,46 @@ export function planCards(file: ImportFile, cards: Card[]): PlannedCard[] {
     const card = cards.find((c) => norm(c.name) === norm(change.nombre)) ?? null;
     return { key, card, change, include: !!card && card.due_day !== change.dia_de_pago };
   });
+}
+
+export interface PlannedAsset {
+  key: number;
+  item: ImportAsset;
+  /** Lo que ya tenés con ese nombre/ticker (se actualiza) o null (se crea) */
+  existing: Asset | null;
+  include: boolean;
+}
+
+export function planAssets(file: ImportFile, assets: Asset[]): PlannedAsset[] {
+  const used = new Set<string>();
+  return file.patrimonio.map((item, key) => {
+    const existing =
+      assets.find(
+        (a) =>
+          !used.has(a.id) &&
+          a.kind === item.tipo &&
+          (item.tipo === "cedear" && item.ticker ? a.ticker?.toUpperCase() === item.ticker : norm(a.name) === norm(item.nombre)),
+      ) ?? null;
+    if (existing) used.add(existing.id);
+    return { key, item, existing, include: true };
+  });
+}
+
+/** Fila para guardar en la tabla assets */
+export function assetRow(item: ImportAsset) {
+  const now = new Date().toISOString();
+  const isCedear = item.tipo === "cedear";
+  return {
+    name: item.nombre,
+    kind: item.tipo,
+    ticker: isCedear ? (item.ticker ?? null) : null,
+    quantity: isCedear ? (item.nominales ?? 0) : null,
+    balance: isCedear ? null : (item.saldo ?? 0),
+    currency: isCedear ? "ARS" : (item.moneda ?? "ARS"),
+    last_price: isCedear ? (item.precio ?? null) : null,
+    price_at: isCedear && item.precio != null ? now : null,
+    rate: item.tipo === "fondo" ? (item.tna ?? null) : null,
+    broker: item.donde || null,
+    updated_at: now,
+  };
 }

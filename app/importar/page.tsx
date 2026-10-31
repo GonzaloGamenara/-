@@ -7,22 +7,26 @@ import { useStore, txColumns } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
 import { dayLabel, money, uid } from "@/lib/format";
 import { CATEGORY_COLORS } from "@/components/CategoryForm";
+import { KIND_EMOJI } from "@/lib/patrimonio";
 import { ChevronLeft } from "@/components/Icons";
 import {
   importRange,
   parseImport,
   planChanges,
   planImport,
+  assetRow,
+  planAssets,
   planCards,
   planMerges,
   type Action,
   type ImportFile,
   type PlannedChange,
+  type PlannedAsset,
   type PlannedCard,
   type PlannedMerge,
   type PlannedRow,
 } from "@/lib/importer";
-import type { Kind, Transaction } from "@/lib/types";
+import type { Asset, Kind, Transaction } from "@/lib/types";
 
 const FILTERS: { id: Action | "todos"; label: string }[] = [
   { id: "todos", label: "Todos" },
@@ -40,6 +44,7 @@ export default function Importar() {
   const [changes, setChanges] = useState<PlannedChange[]>([]);
   const [merges, setMerges] = useState<PlannedMerge[]>([]);
   const [cardChanges, setCardChanges] = useState<PlannedCard[]>([]);
+  const [assetPlan, setAssetPlan] = useState<PlannedAsset[]>([]);
   const [filter, setFilter] = useState<Action | "todos">("todos");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +68,20 @@ export default function Importar() {
           amount: Number(t.amount),
         }));
       }
+      let assets: Asset[] = [];
+      if (parsed.patrimonio.length) {
+        const { data, error: err } = await supabase().from("assets").select("*");
+        if (err) {
+          throw new Error(
+            /does not exist|could not find/i.test(err.message)
+              ? "Para cargar el patrimonio falta correr supabase/migrations/005_patrimonio.sql en Supabase"
+              : "No pude leer tu patrimonio: " + err.message,
+          );
+        }
+        assets = (data ?? []) as Asset[];
+      }
       setFile(parsed);
+      setAssetPlan(planAssets(parsed, assets));
       setRows(planImport(parsed, existing, recurring, categories));
       setChanges(planChanges(parsed, existing, categories));
       setMerges(planMerges(parsed, categories));
@@ -88,13 +106,15 @@ export default function Importar() {
   const toggleMerge = (key: number) =>
     setMerges((p) => p.map((m) => (m.key === key && m.from && m.to ? { ...m, include: !m.include } : m)));
 
+  const toggleAsset = (key: number) => setAssetPlan((p) => p.map((a) => (a.key === key ? { ...a, include: !a.include } : a)));
   const toggleCard = (key: number) => setCardChanges((p) => p.map((c) => (c.key === key && c.card ? { ...c, include: !c.include } : c)));
 
   const chosen = useMemo(() => rows?.filter((r) => r.include) ?? [], [rows]);
   const chosenChanges = changes.filter((c) => c.include && c.target);
   const chosenMerges = merges.filter((m) => m.include && m.from && m.to);
   const chosenCards = cardChanges.filter((c) => c.include && c.card);
-  const total = chosen.length + chosenChanges.length + chosenMerges.length + chosenCards.length;
+  const chosenAssets = assetPlan.filter((a) => a.include);
+  const total = chosen.length + chosenChanges.length + chosenMerges.length + chosenCards.length + chosenAssets.length;
   const summary = useMemo(() => {
     const count = (a: Action) => rows?.filter((r) => r.action === a).length ?? 0;
     const sum = (k: "expense" | "income") =>
@@ -210,6 +230,24 @@ export default function Importar() {
       // 6. Tarjetas: día de pago (mueve sus suscripciones y cuotas de este mes en adelante)
       for (const c of chosenCards) await saveCard({ ...c.card!, due_day: c.change.dia_de_pago });
 
+      // 7. Patrimonio: actualiza lo que ya existe y crea lo nuevo
+      for (const [i, a] of chosenAssets.entries()) {
+        const row: Partial<ReturnType<typeof assetRow>> = assetRow(a.item);
+        if (a.existing) {
+          // Lo que el archivo no trae se deja como estaba
+          if (a.item.precio === undefined) {
+            delete row.last_price;
+            delete row.price_at;
+          }
+          if (a.item.tna === undefined) delete row.rate;
+          if (a.item.donde === undefined) delete row.broker;
+        }
+        const { error: err } = a.existing
+          ? await db.from("assets").update(row).eq("id", a.existing.id)
+          : await db.from("assets").insert({ id: uid(), ...row, sort: 100 + i });
+        if (err) throw new Error(`No pude guardar “${a.item.nombre}”: ${err.message}`);
+      }
+
       const dates = [...chosen.map((r) => r.row.fecha), ...chosenChanges.map((c) => c.change.fecha ?? c.target!.occurred_on)].sort();
       if (dates.length) setMonth(dates.at(-1)!.slice(0, 7));
       await reload();
@@ -219,9 +257,10 @@ export default function Importar() {
           `${chosenChanges.length + chosen.filter((r) => r.action === "fijo").length} corregidos`,
         chosenMerges.length && `${chosenMerges.length} categorías unificadas`,
         chosenCards.length && `${chosenCards.length} tarjeta${chosenCards.length > 1 ? "s" : ""}`,
+        chosenAssets.length && `patrimonio actualizado`,
       ].filter(Boolean);
       toast(`Listo ✓ ${parts.join(" · ")}`);
-      router.push(dates.length ? "/movimientos" : "/ajustes");
+      router.push(dates.length ? "/movimientos" : chosenAssets.length ? "/patrimonio" : "/ajustes");
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -284,6 +323,22 @@ export default function Importar() {
 
       {rows && (
         <>
+          {assetPlan.length > 0 && (
+            <section className="glass rise grid gap-2 rounded-3xl p-4">
+              <div>
+                <h2 className="font-semibold">Patrimonio</h2>
+                <p className="text-xs text-muted">Lo que ya tenés con ese nombre se actualiza; lo demás se agrega.</p>
+              </div>
+              <ul className="-mx-2 grid gap-1">
+                {assetPlan.map((a) => (
+                  <li key={`a${a.key}`}>
+                    <AssetRow a={a} onToggle={() => toggleAsset(a.key)} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           {(changes.length > 0 || merges.length > 0 || cardChanges.length > 0) && (
             <section className="glass rise grid gap-2 rounded-3xl p-4">
               <div>
@@ -377,6 +432,7 @@ export default function Importar() {
                 setChanges([]);
                 setMerges([]);
                 setCardChanges([]);
+                setAssetPlan([]);
                 setError(null);
               }}
               disabled={busy}
@@ -562,6 +618,42 @@ function CardRow({ c, onToggle }: { c: PlannedCard; onToggle: () => void }) {
               : "Mueve sus suscripciones y cuotas de este mes en adelante"}
         </span>
       </span>
+    </button>
+  );
+}
+
+function AssetRow({ a, onToggle }: { a: PlannedAsset; onToggle: () => void }) {
+  const it = a.item;
+  const value = it.tipo === "cedear" ? (it.precio != null ? (it.nominales ?? 0) * it.precio : null) : (it.saldo ?? 0);
+  const before =
+    a.existing && a.existing.kind === "cedear"
+      ? `antes ${new Intl.NumberFormat("es-AR").format(Number(a.existing.quantity ?? 0))} nominales`
+      : a.existing
+        ? `antes ${money(Number(a.existing.balance ?? 0))}`
+        : "nuevo";
+  return (
+    <button
+      onClick={onToggle}
+      aria-pressed={a.include}
+      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity hover:bg-surface ${a.include ? "" : "opacity-45"}`}
+    >
+      <Check on={a.include} />
+      <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">{KIND_EMOJI[it.tipo]}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[15px] font-medium">
+          {it.nombre}
+          {it.donde && <span className="font-normal text-muted"> · {it.donde}</span>}
+        </span>
+        <span className="block truncate text-xs text-muted">
+          {it.tipo === "cedear" ? `${it.ticker} · ${new Intl.NumberFormat("es-AR").format(it.nominales ?? 0)} nominales · ` : ""}
+          {before}
+        </span>
+      </span>
+      {value != null && (
+        <span className={`num shrink-0 text-[15px] font-semibold ${value < 0 ? "text-exp" : ""}`}>
+          {it.moneda === "USD" ? `US$ ${new Intl.NumberFormat("es-AR").format(value)}` : money(value)}
+        </span>
+      )}
     </button>
   );
 }

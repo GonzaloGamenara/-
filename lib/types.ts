@@ -71,3 +71,31 @@ export interface Split {
 /** Monto que cuenta para tus métricas: tu parte si el gasto está dividido */
 export const mine = (t: Pick<Transaction, "amount" | "my_share">) =>
   t.my_share === null || t.my_share === undefined ? t.amount : Number(t.my_share);
+
+export type AssetKind = "cuenta" | "cedear" | "fondo" | "otro";
+
+/** Algo que tenés: una cuenta, un CEDEAR/acción, un fondo u otra inversión */
+export interface Asset {
+  id: string;
+  name: string;
+  kind: AssetKind;
+  ticker: string | null;
+  quantity: number | null;
+  balance: number | null;
+  currency: "ARS" | "USD";
+  last_price: number | null;
+  price_at: string | null;
+  /** Fondos: TNA estimada en % para proyectar el valor entre actualizaciones */
+  rate: number | null;
+  broker: string | null;
+  sort: number;
+  updated_at: string;
+}
+
+export interface AssetSnapshot {
+  period: string; // YYYY-MM
+  total: number;
+  cash: number;
+  invested: number;
+  mep: number | null;
+}

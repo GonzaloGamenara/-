@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { DayBars, Donut, StackBar } from "@/components/charts";
 import { TxRow } from "@/components/TxRow";
 import { ArrowUpRight } from "@/components/Icons";
+import { HomeShortcuts } from "@/components/HomeShortcuts";
 
 export default function Home() {
   const { month, txs, prevTxs, categories, recurring, loading, openSheet, splits, cards } = useStore();
@@ -169,6 +170,8 @@ export default function Home() {
               <span className="text-xs text-muted">Ver detalle →</span>
             </Link>
           )}
+
+          <HomeShortcuts delay={215} />
 
           {/* Lo que viene este mes */}
           {s.scheduled.length > 0 && (
