@@ -21,6 +21,7 @@ import {
   addMonths,
   currentMonth,
   dueDate,
+  fijoDate,
   monthEnd,
   monthLabel,
   monthStart,
@@ -387,7 +388,7 @@ export function DataProvider({
               (r) =>
                 r.active &&
                 !have.has(r.id) &&
-                dueDate(m, r.day) <= today &&
+                fijoDate(m, r) <= today &&
                 // Una suscripción de tarjeta nueva no se cobra en un resumen que ya pasó
                 !(r.card_id && r.created_at && dueDate(m, r.day) < r.created_at.slice(0, 10)),
             )
@@ -397,7 +398,7 @@ export function DataProvider({
               amount: r.amount,
               category_id: r.category_id,
               note: r.name,
-              occurred_on: dueDate(m, r.day),
+              occurred_on: fijoDate(m, r),
               recurring_id: r.id,
               period: m,
               ...(r.card_id ? { card_id: r.card_id } : {}),
@@ -581,6 +582,10 @@ export function DataProvider({
         day: r.card_id ? (cards.find((c) => c.id === r.card_id)?.due_day ?? r.day ?? 1) : (r.day ?? 1),
         active: r.active ?? true,
         ...(r.card_id !== undefined && !needsMigration ? { card_id: r.card_id } : {}),
+        // Migración 009: solo se manda si la columna existe
+        ...(r.last_business_day !== undefined && recurring.some((x) => "last_business_day" in x)
+          ? { last_business_day: !r.card_id && r.last_business_day, ...(r.last_business_day && !r.card_id ? { day: 31 } : {}) }
+          : {}),
         ...(accountsReady && r.account_id !== undefined ? { account_id: r.card_id ? null : r.account_id } : {}),
       };
       let id = r.id;
@@ -600,7 +605,7 @@ export function DataProvider({
       }
       await load(month);
     },
-    [cards, load, month, needsMigration, accountsReady, toast],
+    [cards, load, month, needsMigration, accountsReady, recurring, toast],
   );
 
   const deleteRecurring = useCallback(

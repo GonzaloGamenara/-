@@ -1,5 +1,5 @@
 import { mine, type Category, type Recurring, type Transaction } from "./types";
-import { currentMonth, daysInMonth, dueDate, todayISO } from "./format";
+import { currentMonth, daysInMonth, dueDate, fijoDate, todayISO } from "./format";
 
 /** Suma lo que te toca a vos (si un gasto está dividido, solo tu parte) */
 const sum = (xs: Transaction[]) => xs.reduce((a, t) => a + mine(t), 0);
@@ -108,10 +108,10 @@ export function monthStats(
   if (isCurrent) {
     const applied = new Set(txs.filter((t) => t.period === month).map((t) => t.recurring_id));
     for (const r of recurring) {
-      if (!r.active || applied.has(r.id) || dueDate(month, r.day) <= today) continue;
+      if (!r.active || applied.has(r.id) || fijoDate(month, r) <= today) continue;
       if (r.card_id) continue; // las suscripciones de tarjeta van dentro de su resumen
       const c = cats.find((x) => x.id === r.category_id);
-      scheduled.push({ key: `r-${r.id}`, day: r.day, label: r.name, emoji: c?.emoji ?? "🔁", amount: r.amount, kind: r.kind });
+      scheduled.push({ key: `r-${r.id}`, day: Number(fijoDate(month, r).slice(8, 10)), label: r.name, emoji: c?.emoji ?? "🔁", amount: r.amount, kind: r.kind });
     }
     // Resúmenes de tarjeta que vencen más adelante (agrupados por tarjeta)
     const byCard = new Map<string, { day: number; amount: number }>();

@@ -1,4 +1,4 @@
-import { toISO } from "./format";
+import { fijoDate, toISO } from "./format";
 import type { Asset, Card, Recurring, Transaction } from "./types";
 
 /**
@@ -79,11 +79,11 @@ export function estimateBalance(
 }
 
 /** Fijos (gastos sin tarjeta) que faltan este mes: se generan solos el día que vencen, así que son los de días que no llegaron */
-export function pendingFijos(recurring: Recurring[], today: string, dueDate: (ym: string, d: number) => string) {
+export function pendingFijos(recurring: Recurring[], today: string) {
   const ym = today.slice(0, 7);
   return r2(
     recurring
-      .filter((r) => r.kind === "expense" && r.active && !r.card_id && dueDate(ym, r.day) > today)
+      .filter((r) => r.kind === "expense" && r.active && !r.card_id && fijoDate(ym, r) > today)
       .reduce((s, r) => s + Number(r.amount), 0),
   );
 }

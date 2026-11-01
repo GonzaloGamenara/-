@@ -18,7 +18,9 @@ export function RecurringForm({
   onClose: () => void;
   onSave: (r: Partial<Recurring> & Pick<Recurring, "kind" | "name" | "amount">) => Promise<void>;
 }) {
-  const { categories, cards, deleteRecurring } = useStore();
+  const { categories, cards, recurring, deleteRecurring } = useStore();
+  // Migración 009: "último día hábil" (ej: el sueldo)
+  const habilReady = recurring.some((x) => "last_business_day" in x);
   const kind = (initial.kind ?? "expense") as Kind;
   // Un gasto fijo se puede pagar con tarjeta: en ese caso es una suscripción de esa tarjeta
   const [cardId, setCardId] = useState<string | null>(initial.card_id ?? null);
@@ -26,6 +28,7 @@ export function RecurringForm({
   const [name, setName] = useState(initial.name ?? "");
   const [amount, setAmount] = useState(initial.amount ? new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 }).format(initial.amount) : "");
   const [day, setDay] = useState(String(initial.day ?? 1));
+  const [lastBiz, setLastBiz] = useState(!!initial.last_business_day);
   const [catId, setCatId] = useState(initial.category_id ?? "");
   const [active, setActive] = useState(initial.active ?? true);
   const [accountId, setAccountId] = useState<string | null | undefined>(initial.account_id);
@@ -48,7 +51,7 @@ export function RecurringForm({
           e.preventDefault();
           if (!valid) return;
           setBusy(true);
-          await onSave({ ...initial, kind, name, amount: amountNum, day: Number(day), category_id: catId || null, active, card_id: kind === "expense" ? cardId : null, ...(accountId !== undefined ? { account_id: accountId } : {}) });
+          await onSave({ ...initial, kind, name, amount: amountNum, day: lastBiz && !cardId ? 31 : Number(day), ...(habilReady ? { last_business_day: lastBiz && !cardId } : {}), category_id: catId || null, active, card_id: kind === "expense" ? cardId : null, ...(accountId !== undefined ? { account_id: accountId } : {}) });
         }}
       >
         <label className="grid gap-1 text-sm text-muted">
@@ -89,10 +92,23 @@ export function RecurringForm({
           {!card && (
             <label className="grid gap-1 text-sm text-muted">
               Día del mes
-              <input className={field} type="text" inputMode="numeric" maxLength={2} value={day} onChange={(e) => setDay(e.target.value.replace(/\D/g, ""))} />
+              {lastBiz ? (
+                <span className={`${field} truncate text-sm`}>Último hábil</span>
+              ) : (
+                <input className={field} type="text" inputMode="numeric" maxLength={2} value={day} onChange={(e) => setDay(e.target.value.replace(/\D/g, ""))} />
+              )}
             </label>
           )}
         </div>
+        {!card && habilReady && (
+          <label className="flex items-center justify-between gap-3 rounded-xl bg-inset px-4 py-3 text-sm">
+            <span>
+              <span className="block text-fg">El último día hábil del mes</span>
+              <span className="block text-xs text-muted">Para sueldos que se cobran a fin de mes (salta sábados y domingos)</span>
+            </span>
+            <input type="checkbox" checked={lastBiz} onChange={(e) => setLastBiz(e.target.checked)} className="size-5 shrink-0 accent-[var(--accent-2)]" />
+          </label>
+        )}
         {!card && <AccountPicker label={kind === "income" ? "Entra en" : "Sale de"} value={accountId} onChange={setAccountId} />}
         <label className="grid gap-1 text-sm text-muted">
           Categoría

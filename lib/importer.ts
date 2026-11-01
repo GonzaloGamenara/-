@@ -43,6 +43,10 @@ import { addMonths, parseISO } from "./format";
  * Fijos y suscripciones (se busca por nombre y tarjeta; si no existe, se crea):
  *   "fijos": [{ "nombre": "Claude", "monto": 40092, "tarjeta": "Visa Galicia", "categoria": "Suscripciones" }]
  * Con "antes" se busca el fijo por ese nombre y se le pone el nuevo: { "antes": "Claude", "nombre": "Claude (trabajo IT)", ... }
+ * "dia" puede ser un número o "ultimo_habil" (el último día hábil del mes, ej: el sueldo).
+ *
+ * Cambios sobre compras con tarjeta ya cargadas (resumen en que empiezan a pagarse y/o categoría):
+ *   "cambios_compras": [{ "buscar": { "tarjeta": "Visa Galicia", "nota": "Zapatillas" }, "resumen": "2026-12", "categoria": "Ropa" }]
  * "buscar" tiene que encontrar exactamente un movimiento (fecha exacta, monto con
  * signo y, si se pasan, un texto que contenga la nota y/o el nombre de su categoría).
  */
@@ -116,6 +120,15 @@ export interface ImportFijo {
   tarjeta?: string;
   categoria?: string;
   dia?: number;
+  /** Se cobra el último día hábil del mes */
+  ultimo_habil?: boolean;
+}
+
+export interface ImportPurchaseChange {
+  buscar: { tarjeta?: string; nota: string; monto?: number; fecha?: string };
+  /** YYYY-MM del resumen en que se paga la próxima cuota (en 1 pago: la única) */
+  resumen?: string;
+  categoria?: string;
 }
 
 export interface ImportFile {
@@ -127,6 +140,7 @@ export interface ImportFile {
   patrimonio: ImportAsset[];
   compras: ImportPurchase[];
   fijos: ImportFijo[];
+  cambiosCompras: ImportPurchaseChange[];
 }
 
 export type Action = "nuevo" | "repetido" | "fijo";
@@ -168,7 +182,17 @@ export function parseImport(text: string): ImportFile {
   const rawAssets = Array.isArray(obj.patrimonio) ? obj.patrimonio : [];
   const rawPurchases = Array.isArray(obj.compras_tarjeta) ? obj.compras_tarjeta : [];
   const rawFijos = Array.isArray(obj.fijos) ? obj.fijos : [];
-  if (!raw.length && !rawChanges.length && !rawMerges.length && !rawCards.length && !rawAssets.length && !rawPurchases.length && !rawFijos.length) {
+  const rawPurchaseChanges = Array.isArray(obj.cambios_compras) ? obj.cambios_compras : [];
+  if (
+    !raw.length &&
+    !rawChanges.length &&
+    !rawMerges.length &&
+    !rawCards.length &&
+    !rawAssets.length &&
+    !rawPurchases.length &&
+    !rawFijos.length &&
+    !rawPurchaseChanges.length
+  ) {
     throw new Error("No encontré “movimientos” ni “cambios” para aplicar");
   }
   const movimientos: ImportRow[] = [];
@@ -270,6 +294,7 @@ export function parseImport(text: string): ImportFile {
       throw new Error(`Fijo ${i + 1}: falta el nombre o el monto`);
     }
     const dia = Number(x.dia);
+    const ultimo = x.dia === "ultimo_habil";
     return {
       nombre: x.nombre.trim(),
       antes: typeof x.antes === "string" && x.antes.trim() ? x.antes.trim() : undefined,
@@ -277,10 +302,31 @@ export function parseImport(text: string): ImportFile {
       tipo: x.tipo === "income" ? "income" : "expense",
       tarjeta: typeof x.tarjeta === "string" && x.tarjeta.trim() ? x.tarjeta.trim() : undefined,
       categoria: typeof x.categoria === "string" ? x.categoria.trim() : undefined,
-      dia: Number.isInteger(dia) && dia >= 1 && dia <= 31 ? dia : undefined,
+      dia: ultimo ? 31 : Number.isInteger(dia) && dia >= 1 && dia <= 31 ? dia : undefined,
+      ultimo_habil: ultimo || undefined,
     };
   });
-  return { categorias, movimientos, cambios, fusionar, tarjetas, patrimonio, compras, fijos };
+  const cambiosCompras: ImportPurchaseChange[] = rawPurchaseChanges.map((r, i) => {
+    const x = r as Partial<ImportPurchaseChange>;
+    if (!x.buscar || typeof x.buscar.nota !== "string" || !x.buscar.nota.trim()) {
+      throw new Error(`Cambio de compra ${i + 1}: “buscar” necesita al menos la nota de la compra`);
+    }
+    const resumen = typeof x.resumen === "string" && /^\d{4}-\d{2}$/.test(x.resumen) ? x.resumen : undefined;
+    const categoria = typeof x.categoria === "string" && x.categoria.trim() ? x.categoria.trim() : undefined;
+    if (!resumen && !categoria) throw new Error(`Cambio de compra ${i + 1}: falta qué cambiar (resumen o categoría)`);
+    const monto = Number(x.buscar.monto);
+    return {
+      buscar: {
+        nota: x.buscar.nota.trim(),
+        tarjeta: typeof x.buscar.tarjeta === "string" ? x.buscar.tarjeta.trim() : undefined,
+        monto: Number.isFinite(monto) && monto !== 0 ? Math.abs(monto) : undefined,
+        fecha: isDate(x.buscar.fecha) ? x.buscar.fecha : undefined,
+      },
+      resumen,
+      categoria,
+    };
+  });
+  return { categorias, movimientos, cambios, fusionar, tarjetas, patrimonio, compras, fijos, cambiosCompras };
 }
 
 const daysBetween = (a: string, b: string) => Math.abs(parseISO(a).getTime() - parseISO(b).getTime()) / 86_400_000;
@@ -557,8 +603,54 @@ export function planFijos(file: ImportFile, recurring: Recurring[], cards: Card[
       existing.name === item.nombre &&
       Math.abs(Number(existing.amount) - item.monto) < 0.005 &&
       (!item.categoria || existing.category_id === cat.category?.id) &&
-      (!item.dia || existing.day === item.dia);
+      (item.ultimo_habil ? !!existing.last_business_day : !item.dia || (existing.day === item.dia && !existing.last_business_day));
     return { key, item, card, existing, ...cat, same, problem, include: !problem && !same };
+  });
+}
+
+export interface PlannedPurchaseChange {
+  key: number;
+  change: ImportPurchaseChange;
+  /** La compra encontrada (null si no hay exactamente una) */
+  target: Purchase | null;
+  card: Card | null;
+  category: Category | null;
+  newCategory: string | null;
+  /** Resumen en que hoy se paga la próxima cuota */
+  fromPeriod: string | null;
+  same: boolean;
+  problem: string | null;
+  include: boolean;
+}
+
+/** Período en que se paga la primera cuota que falta de una compra */
+export const nextPurchasePeriod = (p: Pick<Purchase, "first_period" | "from_installment">) => addMonths(p.first_period, Math.max(1, p.from_installment) - 1);
+
+export function planPurchaseChanges(file: ImportFile, purchases: Purchase[], cards: Card[], categories: Category[]): PlannedPurchaseChange[] {
+  return file.cambiosCompras.map((change, key) => {
+    const b = change.buscar;
+    const card = b.tarjeta ? (cards.find((c) => norm(c.name) === norm(b.tarjeta!)) ?? null) : null;
+    const found = purchases.filter(
+      (p) =>
+        norm(p.description).includes(norm(b.nota)) &&
+        (!b.tarjeta || p.card_id === card?.id) &&
+        (b.monto === undefined || close(Number(p.total_amount), b.monto, 0.01)) &&
+        (!b.fecha || p.purchased_on === b.fecha),
+    );
+    const target = found.length === 1 ? found[0] : null;
+    const problem =
+      b.tarjeta && !card
+        ? `No encontré la tarjeta “${b.tarjeta}”`
+        : !found.length
+          ? `No encontré la compra “${b.nota}”`
+          : found.length > 1
+            ? `Hay ${found.length} compras que coinciden con “${b.nota}”: agregá monto o fecha`
+            : null;
+    const cat = resolveCategory(change.categoria, "expense", categories);
+    const fromPeriod = target ? nextPurchasePeriod(target) : null;
+    const same =
+      !!target && (!change.resumen || change.resumen === fromPeriod) && (!change.categoria || target.category_id === cat.category?.id);
+    return { key, change, target, card, ...cat, fromPeriod, same, problem, include: !problem && !same };
   });
 }
 

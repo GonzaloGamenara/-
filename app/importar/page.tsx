@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useStore, txColumns } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
-import { dayLabel, money, uid } from "@/lib/format";
+import { addMonths, dayLabel, money, uid } from "@/lib/format";
 import { CATEGORY_COLORS } from "@/components/CategoryForm";
 import { KIND_EMOJI } from "@/lib/patrimonio";
 import { suggestCategory, useCategoryIndex } from "@/lib/autoCategoria";
@@ -22,6 +22,8 @@ import {
   planMerges,
   planPurchases,
   planFijos,
+  planPurchaseChanges,
+  type PlannedPurchaseChange,
   type PlannedPurchase,
   type PlannedFijo,
   type Action,
@@ -43,7 +45,7 @@ const FILTERS: { id: Action | "todos"; label: string }[] = [
 
 export default function Importar() {
   const router = useRouter();
-  const { categories, recurring, cards, purchases, needsMigration, accountsReady, reload, saveCard, setMonth, toast } = useStore();
+  const { categories, recurring, cards, purchases, splits, needsMigration, accountsReady, reload, saveCard, savePurchase, setMonth, toast } = useStore();
   const catIndex = useCategoryIndex();
   const [text, setText] = useState("");
   const [file, setFile] = useState<ImportFile | null>(null);
@@ -54,6 +56,7 @@ export default function Importar() {
   const [assetPlan, setAssetPlan] = useState<PlannedAsset[]>([]);
   const [purchasePlan, setPurchasePlan] = useState<PlannedPurchase[]>([]);
   const [fijoPlan, setFijoPlan] = useState<PlannedFijo[]>([]);
+  const [purchaseChanges, setPurchaseChanges] = useState<PlannedPurchaseChange[]>([]);
   const [filter, setFilter] = useState<Action | "todos">("todos");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +100,7 @@ export default function Importar() {
       setCardChanges(planCards(parsed, cards));
       setPurchasePlan(planPurchases(parsed, cards, purchases, categories));
       setFijoPlan(planFijos(parsed, recurring, cards, categories));
+      setPurchaseChanges(planPurchaseChanges(parsed, purchases, cards, categories));
       setFilter("todos");
     } catch (e) {
       setError((e as Error).message);
@@ -120,6 +124,8 @@ export default function Importar() {
   const toggleAsset = (key: number) => setAssetPlan((p) => p.map((a) => (a.key === key ? { ...a, include: !a.include } : a)));
   const togglePurchase = (key: number) => setPurchasePlan((p) => p.map((x) => (x.key === key && x.card ? { ...x, include: !x.include } : x)));
   const toggleFijo = (key: number) => setFijoPlan((p) => p.map((x) => (x.key === key && !x.problem ? { ...x, include: !x.include } : x)));
+  const togglePurchaseChange = (key: number) =>
+    setPurchaseChanges((p) => p.map((x) => (x.key === key && !x.problem ? { ...x, include: !x.include } : x)));
   const toggleCard = (key: number) => setCardChanges((p) => p.map((c) => (c.key === key && c.card ? { ...c, include: !c.include } : c)));
 
   const chosen = useMemo(() => rows?.filter((r) => r.include) ?? [], [rows]);
@@ -129,8 +135,16 @@ export default function Importar() {
   const chosenAssets = assetPlan.filter((a) => a.include);
   const chosenPurchases = purchasePlan.filter((x) => x.include && x.card);
   const chosenFijos = fijoPlan.filter((x) => x.include && !x.problem);
+  const chosenPurchaseChanges = purchaseChanges.filter((x) => x.include && x.target);
   const total =
-    chosen.length + chosenChanges.length + chosenMerges.length + chosenCards.length + chosenAssets.length + chosenPurchases.length + chosenFijos.length;
+    chosen.length +
+    chosenChanges.length +
+    chosenMerges.length +
+    chosenCards.length +
+    chosenAssets.length +
+    chosenPurchases.length +
+    chosenFijos.length +
+    chosenPurchaseChanges.length;
   const summary = useMemo(() => {
     const count = (a: Action) => rows?.filter((r) => r.action === a).length ?? 0;
     const sum = (k: "expense" | "income") =>
@@ -142,6 +156,7 @@ export default function Importar() {
           ...changes.filter((c) => c.include).map((c) => c.newCategory),
           ...purchasePlan.filter((x) => x.include).map((x) => x.newCategory),
           ...fijoPlan.filter((x) => x.include).map((x) => x.newCategory),
+          ...purchaseChanges.filter((x) => x.include).map((x) => x.newCategory),
         ].filter(
           (x): x is string => !!x,
         ),
@@ -155,7 +170,7 @@ export default function Importar() {
       ingresos: sum("income"),
       newCats,
     };
-  }, [rows, chosen, changes, purchasePlan, fijoPlan]);
+  }, [rows, chosen, changes, purchasePlan, fijoPlan, purchaseChanges]);
 
   const visible = rows?.filter((r) => filter === "todos" || r.action === filter) ?? [];
 
@@ -181,6 +196,7 @@ export default function Importar() {
           });
       for (const x of chosenPurchases) if (x.newCategory) needed.set(`expense:${x.newCategory}`, { kind: "expense", name: x.newCategory });
       for (const x of chosenFijos) if (x.newCategory) needed.set(`${x.item.tipo}:${x.newCategory}`, { kind: x.item.tipo, name: x.newCategory });
+      for (const x of chosenPurchaseChanges) if (x.newCategory) needed.set(`expense:${x.newCategory}`, { kind: "expense", name: x.newCategory });
       if (needed.size) {
         const defs = new Map(file.categorias.map((c) => [c.nombre.trim().toLowerCase(), c]));
         const newCats = [...needed.values()].map((n, i) => {
@@ -300,12 +316,37 @@ export default function Importar() {
           kind: x.item.tipo,
           amount: x.item.monto,
           ...(category_id !== undefined ? { category_id } : {}),
-          ...(x.card ? { card_id: x.card.id, day: x.card.due_day } : x.item.dia ? { day: x.item.dia } : {}),
+          ...(x.card
+            ? { card_id: x.card.id, day: x.card.due_day }
+            : x.item.ultimo_habil
+              ? { day: 31, last_business_day: true }
+              : x.item.dia
+                ? { day: x.item.dia, ...(x.existing?.last_business_day ? { last_business_day: false } : {}) }
+                : {}),
         };
         const { error: err } = x.existing
           ? await db.from("recurring").update(body).eq("id", x.existing.id)
           : await db.from("recurring").insert({ day: 1, active: true, category_id: null, ...body });
-        if (err) throw new Error(`No pude guardar el fijo “${x.item.nombre}”: ${err.message}`);
+        if (err)
+          throw new Error(
+            /last_business_day/.test(err.message)
+              ? "Para “último día hábil” falta correr supabase/migrations/009_ultimo_habil.sql en Supabase"
+              : `No pude guardar el fijo “${x.item.nombre}”: ${err.message}`,
+          );
+      }
+
+      // 10. Compras con tarjeta ya cargadas: resumen en que se pagan y/o categoría (se regeneran sus cuotas)
+      for (const x of chosenPurchaseChanges) {
+        const p = x.target!;
+        const from = Math.max(1, p.from_installment);
+        const ok = await savePurchase({
+          ...p,
+          card_id: p.card_id!,
+          first_period: x.change.resumen ? addMonths(x.change.resumen, -(from - 1)) : p.first_period,
+          category_id: x.category?.id ?? (x.newCategory ? (catIds.get(`expense:${x.newCategory}`) ?? p.category_id) : p.category_id),
+          splits: splits.filter((s) => s.purchase_id === p.id).map((s) => ({ name: s.name, amount: s.amount, settled_on: s.settled_on })),
+        });
+        if (!ok) throw new Error(`No pude actualizar la compra “${p.description}”`);
       }
 
       const dates = [...chosen.map((r) => r.row.fecha), ...chosenChanges.map((c) => c.change.fecha ?? c.target!.occurred_on)].sort();
@@ -320,10 +361,11 @@ export default function Importar() {
         chosenAssets.length && `patrimonio actualizado`,
         chosenPurchases.length && `${chosenPurchases.length} compra${chosenPurchases.length > 1 ? "s" : ""} con tarjeta`,
         chosenFijos.length && `${chosenFijos.length} fijo${chosenFijos.length > 1 ? "s" : ""}`,
+        chosenPurchaseChanges.length && `${chosenPurchaseChanges.length} compra${chosenPurchaseChanges.length > 1 ? "s" : ""} corregida${chosenPurchaseChanges.length > 1 ? "s" : ""}`,
       ].filter(Boolean);
       toast(`Listo ✓ ${parts.join(" · ")}`);
       router.push(
-        dates.length ? "/movimientos" : chosenPurchases.length || chosenFijos.length ? "/fijos" : chosenAssets.length ? "/patrimonio" : "/ajustes",
+        dates.length ? "/movimientos" : chosenPurchases.length || chosenFijos.length || chosenPurchaseChanges.length ? "/fijos" : chosenAssets.length ? "/patrimonio" : "/ajustes",
       );
     } catch (e) {
       setError((e as Error).message);
@@ -424,7 +466,7 @@ export default function Importar() {
             </section>
           )}
 
-          {(changes.length > 0 || merges.length > 0 || cardChanges.length > 0 || fijoPlan.length > 0) && (
+          {(changes.length > 0 || merges.length > 0 || cardChanges.length > 0 || fijoPlan.length > 0 || purchaseChanges.length > 0) && (
             <section className="glass rise grid gap-2 rounded-3xl p-4">
               <div>
                 <h2 className="font-semibold">Correcciones</h2>
@@ -434,6 +476,11 @@ export default function Importar() {
                 {merges.map((m) => (
                   <li key={`m${m.key}`}>
                     <MergeRow m={m} onToggle={() => toggleMerge(m.key)} />
+                  </li>
+                ))}
+                {purchaseChanges.map((x) => (
+                  <li key={`pc${x.key}`}>
+                    <PurchaseChangeRow x={x} onToggle={() => togglePurchaseChange(x.key)} />
                   </li>
                 ))}
                 {fijoPlan.map((x) => (
@@ -525,6 +572,7 @@ export default function Importar() {
                 setAssetPlan([]);
                 setPurchasePlan([]);
                 setFijoPlan([]);
+                setPurchaseChanges([]);
                 setError(null);
               }}
               disabled={busy}
@@ -695,6 +743,37 @@ function PurchaseRow({ x, onToggle }: { x: PlannedPurchase; onToggle: () => void
   );
 }
 
+function PurchaseChangeRow({ x, onToggle }: { x: PlannedPurchaseChange; onToggle: () => void }) {
+  const { categories } = useStore();
+  const p = x.target;
+  const mes = (ym: string) => new Date(`${ym}-01T00:00`).toLocaleDateString("es-AR", { month: "short", year: "2-digit" }).replace(".", "");
+  const edits: string[] = [];
+  if (p && x.change.resumen && x.change.resumen !== x.fromPeriod) edits.push(`se paga desde ${mes(x.fromPeriod!)} → ${mes(x.change.resumen)}`);
+  if (p && x.change.categoria) {
+    const from = categories.find((c) => c.id === p.category_id)?.name ?? "Sin categoría";
+    const to = x.category?.name ?? `${x.newCategory} (nueva)`;
+    if (from !== to) edits.push(`${from} → ${to}`);
+  }
+  return (
+    <button
+      onClick={onToggle}
+      disabled={!!x.problem}
+      aria-pressed={x.include}
+      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity hover:bg-surface ${x.include ? "" : "opacity-45"}`}
+    >
+      <Check on={x.include} />
+      <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">💳</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[15px] font-medium">Compra: {p?.description ?? x.change.buscar.nota}</span>
+        <span className={`line-clamp-2 block text-xs ${x.problem ? "text-amber-500" : "text-muted"}`}>
+          {x.problem ?? (x.same ? "Ya está así" : edits.join(" · "))}
+        </span>
+      </span>
+      {p && <span className="num shrink-0 text-[15px] font-semibold">{money(Number(p.total_amount))}</span>}
+    </button>
+  );
+}
+
 function FijoRow({ x, onToggle }: { x: PlannedFijo; onToggle: () => void }) {
   const from = x.existing ? Number(x.existing.amount) : null;
   return (
@@ -717,7 +796,14 @@ function FijoRow({ x, onToggle }: { x: PlannedFijo; onToggle: () => void }) {
             (x.same
               ? "Ya está así"
               : from !== null
-                ? `${money(from)} → ${money(x.item.monto)} por mes`
+                ? [
+                    from !== x.item.monto ? `${money(from)} → ${money(x.item.monto)} por mes` : "",
+                    x.item.ultimo_habil && !x.existing?.last_business_day ? `día ${x.existing?.day} → último día hábil` : "",
+                    x.item.dia && !x.item.ultimo_habil && x.item.dia !== x.existing?.day ? `día ${x.existing?.day} → ${x.item.dia}` : "",
+                    x.existing && x.existing.name !== x.item.nombre ? "nuevo nombre" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "sin cambios de monto"
                 : `${money(x.item.monto)} por mes${x.category || x.newCategory ? ` · ${x.category?.name ?? `${x.newCategory} (nueva)`}` : ""}`)}
         </span>
       </span>

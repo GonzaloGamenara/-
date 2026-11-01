@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { compact, currentMonth, dueDate, money, moneyRound, monthLabelCompact, todayISO } from "@/lib/format";
+import { compact, currentMonth, money, moneyRound, monthLabelCompact, todayISO } from "@/lib/format";
 import { pendingFijos } from "@/lib/cuentas";
 import { KIND_EMOJI, usePatrimonio, type ValuedAsset } from "@/lib/patrimonio";
 import type { Asset, AssetSnapshot } from "@/lib/types";
@@ -27,7 +27,7 @@ function ago(iso: string | null) {
 
 export default function Patrimonio() {
   const { hideAmounts, accountsReady, recurring, reload } = useStore();
-  const fijosPendientes = pendingFijos(recurring, todayISO(), dueDate);
+  const fijosPendientes = pendingFijos(recurring, todayISO());
   const p = usePatrimonio({ accountsReady, pendingFijos: fijosPendientes });
   const [editing, setEditing] = useState<{ asset: Partial<Asset>; row?: ValuedAsset } | null>(null);
 

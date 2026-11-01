@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { useCardSummary } from "@/lib/useCardSummary";
 import { installmentAmounts, installmentFor, nextInstallment, remaining } from "@/lib/cards";
-import { currentMonth, dueDate, money, monthLabel, todayISO } from "@/lib/format";
+import { currentMonth, dueDate, fijoDate, fijoDayLabel, money, monthLabel, todayISO } from "@/lib/format";
 import { launchMonth } from "@/lib/launch";
 import type { Card, Purchase, Recurring } from "@/lib/types";
 import { PageHeader } from "@/components/PageHeader";
@@ -57,7 +57,7 @@ export default function Fijos() {
         ? "Desde octubre"
         : isCurrent && applied.has(r.id)
           ? "✓ Este mes"
-          : isCurrent && dueDate(month, r.day) > todayISO()
+          : isCurrent && fijoDate(month, r) > todayISO()
             ? "Pendiente"
             : null;
 
@@ -114,7 +114,7 @@ export default function Fijos() {
       {incomes.length > 0 && (
         <Group title="Ingresos">
           {incomes.map((r) => (
-            <Row key={r.id} emoji={cat(r.category_id)?.emoji ?? "💼"} color={cat(r.category_id)?.color} title={r.name} sub={`Día ${r.day}`} badge={status(r)} amount={money(r.amount)} tone="text-inc" dim={!r.active} onClick={() => setEditing(r)} />
+            <Row key={r.id} emoji={cat(r.category_id)?.emoji ?? "💼"} color={cat(r.category_id)?.color} title={r.name} sub={fijoDayLabel(r)} badge={status(r)} amount={money(r.amount)} tone="text-inc" dim={!r.active} onClick={() => setEditing(r)} />
           ))}
         </Group>
       )}
@@ -122,7 +122,7 @@ export default function Fijos() {
       {expenses.length > 0 && (
         <Group title="Gastos">
           {expenses.map((r) => (
-            <Row key={r.id} emoji={cat(r.category_id)?.emoji ?? "🏠"} color={cat(r.category_id)?.color} title={r.name} sub={`Día ${r.day}`} badge={status(r)} amount={money(r.amount)} dim={!r.active} onClick={() => setEditing(r)} />
+            <Row key={r.id} emoji={cat(r.category_id)?.emoji ?? "🏠"} color={cat(r.category_id)?.color} title={r.name} sub={fijoDayLabel(r)} badge={status(r)} amount={money(r.amount)} dim={!r.active} onClick={() => setEditing(r)} />
           ))}
         </Group>
       )}

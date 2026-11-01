@@ -1,4 +1,4 @@
-import { addMonths, dueDate, monthStart } from "./format";
+import { addMonths, dueDate, fijoDate, monthStart } from "./format";
 import { compact, normNote, SUBS_RE } from "./autoCategoria";
 import { mine, type Card, type Category, type Kind, type Purchase, type Recurring } from "./types";
 
@@ -104,7 +104,8 @@ export function trackedItems(recurring: Recurring[], hist: HistTx[], categories:
       // Si el monto es uno que ya se cobró antes, el último cobro distinto fue algo puntual del banco.
       if (r.active && last && points.every((p) => changed(p.amount, r.amount))) points.push({ period: null, amount: r.amount });
       const day = card?.due_day ?? r.day;
-      const chargedNow = charges.some(([m]) => m === thisMonth) || dueDate(thisMonth, day) <= today;
+      const at = (ym: string) => (card ? dueDate(ym, day) : fijoDate(ym, r));
+      const chargedNow = charges.some(([m]) => m === thisMonth) || at(thisMonth) <= today;
       return {
         r,
         group,
@@ -112,7 +113,7 @@ export function trackedItems(recurring: Recurring[], hist: HistTx[], categories:
         yearly: r.amount * 12,
         card,
         lastCharge: last ? { date: last.occurred_on, amount: last.amount } : null,
-        nextDate: r.active ? dueDate(chargedNow ? addMonths(thisMonth, 1) : thisMonth, day) : null,
+        nextDate: r.active ? at(chargedNow ? addMonths(thisMonth, 1) : thisMonth) : null,
         change: priceChange(points),
       };
     })

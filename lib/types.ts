@@ -21,6 +21,8 @@ export interface Recurring {
   card_id?: string | null;
   /** De qué cuenta se paga (o a cuál entra); vacío = la principal */
   account_id?: string | null;
+  /** Se cobra el último día hábil del mes (ej: el sueldo); en ese caso `day` queda en 31 */
+  last_business_day?: boolean;
   created_at?: string;
 }
 

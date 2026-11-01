@@ -392,3 +392,10 @@ alter table public.assets add column if not exists liquid boolean not null defau
 update public.assets set balance_at = updated_at where kind = 'cuenta' and balance_at is null;
 
 create index if not exists transactions_account_idx on public.transactions (user_id, account_id, occurred_on);
+
+
+-- ---------------------------------------------------------------
+-- 009 · Fijos el último día hábil del mes
+-- ---------------------------------------------------------------
+
+alter table public.recurring add column if not exists last_business_day boolean not null default false;

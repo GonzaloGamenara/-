@@ -107,6 +107,21 @@ export function dayLabel(iso: string) {
 export const dueDate = (ym: string, day: number) =>
   `${ym}-${pad(Math.min(day, daysInMonth(ym)))}`;
 
+/** Último día hábil del mes (lunes a viernes) */
+export function lastBusinessDay(ym: string) {
+  const [y, m] = ym.split("-").map(Number);
+  const d = new Date(y, m, 0);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
+  return toISO(d);
+}
+
+/** Fecha de un fijo en un mes: su día, o el último día hábil si está marcado así */
+export const fijoDate = (ym: string, r: { day: number; last_business_day?: boolean | null }) =>
+  r.last_business_day ? lastBusinessDay(ym) : dueDate(ym, r.day);
+
+/** "Día 9" o "Último día hábil" */
+export const fijoDayLabel = (r: { day: number; last_business_day?: boolean | null }) => (r.last_business_day ? "Último día hábil" : `Día ${r.day}`);
+
 export const uid = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
