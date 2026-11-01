@@ -124,7 +124,7 @@ export async function buildDataset(range: Range, alias: string) {
     nombre: r.name,
     tipo: r.kind === "expense" ? "gasto" : "ingreso",
     monto_mensual: num(r.amount),
-    dia: r.day,
+    dia: r.last_business_day ? "último día hábil" : r.day,
     categoria: catName(r.category_id),
     tarjeta: cardName(r.card_id),
     activo: r.active,
