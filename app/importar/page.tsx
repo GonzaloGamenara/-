@@ -296,7 +296,7 @@ export default function Importar() {
       for (const x of chosenFijos) {
         const category_id = x.category?.id ?? (x.newCategory ? (catIds.get(`${x.item.tipo}:${x.newCategory}`) ?? null) : undefined);
         const body = {
-          name: x.existing?.name ?? x.item.nombre,
+          name: x.item.nombre,
           kind: x.item.tipo,
           amount: x.item.monto,
           ...(category_id !== undefined ? { category_id } : {}),
@@ -708,7 +708,8 @@ function FijoRow({ x, onToggle }: { x: PlannedFijo; onToggle: () => void }) {
       <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">🔁</span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-medium">
-          {x.existing ? "Actualizar" : "Nuevo fijo"}: {x.item.nombre}
+          {x.existing ? "Actualizar" : "Nuevo fijo"}: {x.existing && x.existing.name !== x.item.nombre ? `${x.existing.name} → ` : ""}
+          {x.item.nombre}
           {x.item.tarjeta ? ` (${x.item.tarjeta})` : ""}
         </span>
         <span className={`line-clamp-2 block text-xs ${x.problem ? "text-amber-500" : "text-muted"}`}>

@@ -42,6 +42,7 @@ import { addMonths, parseISO } from "./format";
  *
  * Fijos y suscripciones (se busca por nombre y tarjeta; si no existe, se crea):
  *   "fijos": [{ "nombre": "Claude", "monto": 40092, "tarjeta": "Visa Galicia", "categoria": "Suscripciones" }]
+ * Con "antes" se busca el fijo por ese nombre y se le pone el nuevo: { "antes": "Claude", "nombre": "Claude (trabajo IT)", ... }
  * "buscar" tiene que encontrar exactamente un movimiento (fecha exacta, monto con
  * signo y, si se pasan, un texto que contenga la nota y/o el nombre de su categoría).
  */
@@ -108,6 +109,8 @@ export interface ImportPurchase {
 
 export interface ImportFijo {
   nombre: string;
+  /** Nombre actual del fijo, si se lo quiere renombrar */
+  antes?: string;
   monto: number;
   tipo: Kind;
   tarjeta?: string;
@@ -269,6 +272,7 @@ export function parseImport(text: string): ImportFile {
     const dia = Number(x.dia);
     return {
       nombre: x.nombre.trim(),
+      antes: typeof x.antes === "string" && x.antes.trim() ? x.antes.trim() : undefined,
       monto: Math.round(monto * 100) / 100,
       tipo: x.tipo === "income" ? "income" : "expense",
       tarjeta: typeof x.tarjeta === "string" && x.tarjeta.trim() ? x.tarjeta.trim() : undefined,
@@ -543,11 +547,14 @@ export function planFijos(file: ImportFile, recurring: Recurring[], cards: Card[
     const card = item.tarjeta ? (cards.find((c) => norm(c.name) === norm(item.tarjeta!)) ?? null) : null;
     const problem = item.tarjeta && !card ? `No encontré la tarjeta “${item.tarjeta}”` : null;
     // Mismo nombre y, si se indica, misma tarjeta: así puede haber un "Claude" en cada tarjeta
-    const existing =
-      recurring.find((r) => r.kind === item.tipo && norm(r.name) === norm(item.nombre) && (!item.tarjeta || r.card_id === card?.id)) ?? null;
+    const find = (name: string) =>
+      recurring.find((r) => r.kind === item.tipo && norm(r.name) === norm(name) && (!item.tarjeta || r.card_id === card?.id)) ?? null;
+    // Si ya se renombró (importaste dos veces), lo encuentra por el nombre nuevo
+    const existing = (item.antes ? find(item.antes) : null) ?? find(item.nombre);
     const cat = resolveCategory(item.categoria, item.tipo, categories);
     const same =
       !!existing &&
+      existing.name === item.nombre &&
       Math.abs(Number(existing.amount) - item.monto) < 0.005 &&
       (!item.categoria || existing.category_id === cat.category?.id) &&
       (!item.dia || existing.day === item.dia);
