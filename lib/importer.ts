@@ -1,5 +1,5 @@
-import type { Asset, AssetKind, Card, Category, Kind, Recurring, Transaction } from "./types";
-import { parseISO } from "./format";
+import type { Asset, AssetKind, Card, Category, Kind, Purchase, Recurring, Transaction } from "./types";
+import { addMonths, parseISO } from "./format";
 
 /**
  * Importación de movimientos desde un archivo JSON (por ejemplo, el que arma
@@ -32,6 +32,16 @@ import { parseISO } from "./format";
  *     { "nombre": "Fondo LECAP", "tipo": "fondo", "saldo": 819681, "tna": 30, "donde": "Balanz" }
  *   ]
  * En "patrimonio", si ya existe algo con ese nombre (o ese ticker) se actualiza; si no, se crea.
+ *
+ * Compras con tarjeta (del resumen), con la fecha en que compraste y el resumen en que se pagan:
+ *   "compras_tarjeta": [
+ *     { "tarjeta": "Visa Galicia", "fecha": "2026-10-03", "monto": 195559.06, "nota": "Publicidad Facebook",
+ *       "categoria": "Costo de ventas", "resumen": "2026-11", "cuotas": 1, "detalle": "USD 82,89 + impuestos" }
+ *   ]
+ * Si ya hay una compra en esa tarjeta con la misma fecha y un monto parecido, se marca como repetida.
+ *
+ * Fijos y suscripciones (se busca por nombre y tarjeta; si no existe, se crea):
+ *   "fijos": [{ "nombre": "Claude", "monto": 40092, "tarjeta": "Visa Galicia", "categoria": "Suscripciones" }]
  * "buscar" tiene que encontrar exactamente un movimiento (fecha exacta, monto con
  * signo y, si se pasan, un texto que contenga la nota y/o el nombre de su categoría).
  */
@@ -83,6 +93,28 @@ export interface ImportAsset {
   donde?: string;
 }
 
+export interface ImportPurchase {
+  tarjeta: string;
+  fecha: string;
+  monto: number;
+  nota: string;
+  categoria?: string;
+  cuotas: number;
+  /** YYYY-MM del resumen en que se paga la cuota 1 (si falta: el mes siguiente a la compra) */
+  resumen: string;
+  /** Texto libre para mostrar en la revisión (ej: "USD 20 + impuestos") */
+  detalle?: string;
+}
+
+export interface ImportFijo {
+  nombre: string;
+  monto: number;
+  tipo: Kind;
+  tarjeta?: string;
+  categoria?: string;
+  dia?: number;
+}
+
 export interface ImportFile {
   categorias: ImportCategory[];
   movimientos: ImportRow[];
@@ -90,6 +122,8 @@ export interface ImportFile {
   fusionar: ImportMerge[];
   tarjetas: ImportCard[];
   patrimonio: ImportAsset[];
+  compras: ImportPurchase[];
+  fijos: ImportFijo[];
 }
 
 export type Action = "nuevo" | "repetido" | "fijo";
@@ -129,7 +163,9 @@ export function parseImport(text: string): ImportFile {
   const rawMerges = Array.isArray(obj.fusionar_categorias) ? obj.fusionar_categorias : [];
   const rawCards = Array.isArray(obj.tarjetas) ? obj.tarjetas : [];
   const rawAssets = Array.isArray(obj.patrimonio) ? obj.patrimonio : [];
-  if (!raw.length && !rawChanges.length && !rawMerges.length && !rawCards.length && !rawAssets.length) {
+  const rawPurchases = Array.isArray(obj.compras_tarjeta) ? obj.compras_tarjeta : [];
+  const rawFijos = Array.isArray(obj.fijos) ? obj.fijos : [];
+  if (!raw.length && !rawChanges.length && !rawMerges.length && !rawCards.length && !rawAssets.length && !rawPurchases.length && !rawFijos.length) {
     throw new Error("No encontré “movimientos” ni “cambios” para aplicar");
   }
   const movimientos: ImportRow[] = [];
@@ -205,7 +241,42 @@ export function parseImport(text: string): ImportFile {
       donde: typeof x.donde === "string" ? x.donde.trim() : undefined,
     };
   });
-  return { categorias, movimientos, cambios, fusionar, tarjetas, patrimonio };
+  const compras: ImportPurchase[] = rawPurchases.map((r, i) => {
+    const x = r as Partial<Record<keyof ImportPurchase, unknown>>;
+    const monto = Math.abs(Number(x.monto));
+    if (typeof x.tarjeta !== "string" || !isDate(x.fecha) || !Number.isFinite(monto) || monto === 0) {
+      throw new Error(`Compra con tarjeta ${i + 1}: falta la tarjeta, la fecha (AAAA-MM-DD) o el monto`);
+    }
+    const cuotas = Number.isInteger(Number(x.cuotas)) && Number(x.cuotas) >= 1 ? Number(x.cuotas) : 1;
+    const resumen = typeof x.resumen === "string" && /^\d{4}-\d{2}$/.test(x.resumen) ? x.resumen : addMonths(x.fecha.slice(0, 7), 1);
+    return {
+      tarjeta: x.tarjeta.trim(),
+      fecha: x.fecha,
+      monto: Math.round(monto * 100) / 100,
+      nota: typeof x.nota === "string" && x.nota.trim() ? x.nota.trim() : "Compra",
+      categoria: typeof x.categoria === "string" ? x.categoria.trim() : undefined,
+      cuotas,
+      resumen,
+      detalle: typeof x.detalle === "string" ? x.detalle.trim() : undefined,
+    };
+  });
+  const fijos: ImportFijo[] = rawFijos.map((r, i) => {
+    const x = r as Partial<Record<keyof ImportFijo, unknown>>;
+    const monto = Math.abs(Number(x.monto));
+    if (typeof x.nombre !== "string" || !x.nombre.trim() || !Number.isFinite(monto) || monto === 0) {
+      throw new Error(`Fijo ${i + 1}: falta el nombre o el monto`);
+    }
+    const dia = Number(x.dia);
+    return {
+      nombre: x.nombre.trim(),
+      monto: Math.round(monto * 100) / 100,
+      tipo: x.tipo === "income" ? "income" : "expense",
+      tarjeta: typeof x.tarjeta === "string" && x.tarjeta.trim() ? x.tarjeta.trim() : undefined,
+      categoria: typeof x.categoria === "string" ? x.categoria.trim() : undefined,
+      dia: Number.isInteger(dia) && dia >= 1 && dia <= 31 ? dia : undefined,
+    };
+  });
+  return { categorias, movimientos, cambios, fusionar, tarjetas, patrimonio, compras, fijos };
 }
 
 const daysBetween = (a: string, b: string) => Math.abs(parseISO(a).getTime() - parseISO(b).getTime()) / 86_400_000;
@@ -416,6 +487,71 @@ export function planCards(file: ImportFile, cards: Card[]): PlannedCard[] {
   return file.tarjetas.map((change, key) => {
     const card = cards.find((c) => norm(c.name) === norm(change.nombre)) ?? null;
     return { key, card, change, include: !!card && card.due_day !== change.dia_de_pago };
+  });
+}
+
+/** Categoría existente por nombre, o el nombre de la que hay que crear */
+function resolveCategory(name: string | undefined, kind: Kind, categories: Category[]) {
+  if (!name) return { category: null, newCategory: null };
+  const category = categories.find((c) => c.kind === kind && norm(c.name) === norm(name)) ?? null;
+  return { category, newCategory: category ? null : name };
+}
+
+export interface PlannedPurchase {
+  key: number;
+  item: ImportPurchase;
+  card: Card | null;
+  category: Category | null;
+  newCategory: string | null;
+  /** Compra ya cargada que coincide */
+  match: Purchase | null;
+  include: boolean;
+}
+
+export function planPurchases(file: ImportFile, cards: Card[], purchases: Purchase[], categories: Category[]): PlannedPurchase[] {
+  return file.compras.map((item, key) => {
+    const card = cards.find((c) => norm(c.name) === norm(item.tarjeta)) ?? null;
+    const match =
+      (card &&
+        purchases.find(
+          (p) =>
+            p.card_id === card.id &&
+            p.purchased_on === item.fecha &&
+            (close(Number(p.total_amount), item.monto, 0.05) || norm(p.description) === norm(item.nota)),
+        )) ??
+      null;
+    return { key, item, card, ...resolveCategory(item.categoria, "expense", categories), match, include: !!card && !match };
+  });
+}
+
+export interface PlannedFijo {
+  key: number;
+  item: ImportFijo;
+  card: Card | null;
+  /** El fijo que se actualiza (null: se crea) */
+  existing: Recurring | null;
+  category: Category | null;
+  newCategory: string | null;
+  /** Ya está así: no hay nada que cambiar */
+  same: boolean;
+  problem: string | null;
+  include: boolean;
+}
+
+export function planFijos(file: ImportFile, recurring: Recurring[], cards: Card[], categories: Category[]): PlannedFijo[] {
+  return file.fijos.map((item, key) => {
+    const card = item.tarjeta ? (cards.find((c) => norm(c.name) === norm(item.tarjeta!)) ?? null) : null;
+    const problem = item.tarjeta && !card ? `No encontré la tarjeta “${item.tarjeta}”` : null;
+    // Mismo nombre y, si se indica, misma tarjeta: así puede haber un "Claude" en cada tarjeta
+    const existing =
+      recurring.find((r) => r.kind === item.tipo && norm(r.name) === norm(item.nombre) && (!item.tarjeta || r.card_id === card?.id)) ?? null;
+    const cat = resolveCategory(item.categoria, item.tipo, categories);
+    const same =
+      !!existing &&
+      Math.abs(Number(existing.amount) - item.monto) < 0.005 &&
+      (!item.categoria || existing.category_id === cat.category?.id) &&
+      (!item.dia || existing.day === item.dia);
+    return { key, item, card, existing, ...cat, same, problem, include: !problem && !same };
   });
 }
 
