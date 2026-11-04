@@ -190,8 +190,8 @@ const isNetworkError = (e: { message?: string } | null | undefined) =>
   (typeof navigator !== "undefined" && !navigator.onLine) ||
   /fetch|network|load failed|timeout/i.test(e?.message ?? "");
 
-const legacyTxColumns = "id,kind,amount,category_id,note,occurred_on,recurring_id,period";
-export const txColumns = `${legacyTxColumns},card_id,purchase_id,installment,my_share`;
+import { legacyTxColumns, txColumns } from "./columns";
+export { txColumns };
 /** Error de Postgres/PostgREST por columna o tabla inexistente (migración sin correr) */
 const isMissingSchema = (e: { message?: string; code?: string } | null | undefined) =>
   !!e && (e.code === "42703" || e.code === "42P01" || e.code === "PGRST200" || e.code === "PGRST204" || /does not exist|could not find/i.test(e.message ?? ""));

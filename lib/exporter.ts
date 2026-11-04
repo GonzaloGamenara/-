@@ -2,11 +2,12 @@
  * Exportación de datos pensada para un agente de IA (Markdown con contexto + JSON exacto)
  * y para planillas (CSV). Todo se arma en el navegador a partir de Supabase.
  */
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
-import { txColumns } from "./store";
+import { txColumns } from "./columns";
 import { addMonths, currentMonth, monthEnd, monthStart } from "./format";
 import { installmentAmounts, nextPaymentPeriod, remaining } from "./cards";
-import { fetchPrices, loadPatrimonio } from "./patrimonio";
+import { fetchPrices, loadPatrimonio, type Prices } from "./patrimonioCore";
 import { budgetItems, budgetStatus, configFor, daysLabel, toConfig, type BudgetConfig } from "./techos";
 import { launchMonth } from "./launch";
 import { groupBalances, type SharedExpense, type SharedGroup, type SharedMember, type SharedPayment } from "./shared";
@@ -37,9 +38,12 @@ async function all<T>(q: PromiseLike<{ data: unknown; error: unknown }>): Promis
   return !error && Array.isArray(data) ? (data as T[]) : [];
 }
 
-/** Arma el dataset completo del período. */
-export async function buildDataset(range: Range, alias: string) {
-  const db = supabase();
+/**
+ * Arma el dataset completo del período. En el navegador usa tu sesión; la API para tu agente
+ * le pasa su propio `db` (solo lectura, con tu token) y los precios del momento.
+ */
+export async function buildDataset(range: Range, alias: string, opts: { db?: SupabaseClient; prices?: Prices | null } = {}) {
+  const db = opts.db ?? supabase();
   const from = fromDate(range);
   // Hasta fin del mes actual: lo posterior (cuotas futuras) va en "tarjetas → comprometido"
   const to = monthEnd(currentMonth());
@@ -180,8 +184,8 @@ export async function buildDataset(range: Range, alias: string) {
     };
   });
 
-  const patrimonio = await patrimonioSection();
-  const techos = await techosSection(txs, purchases, splits, categories, months);
+  const patrimonio = await patrimonioSection(db, opts.prices);
+  const techos = await techosSection(db, txs, purchases, splits, categories, months);
 
   return {
     formato: "gastos-app/v1",
@@ -214,9 +218,8 @@ export type Dataset = Awaited<ReturnType<typeof buildDataset>>;
  * Techos por mes: lo gastado en cada categoría o grupo con techo (tu parte; tarjetas en la fecha de
  * compra, una cuota por mes) contra el techo que regía ese mes (la foto mensual si existe).
  */
-async function techosSection(txs: Transaction[], purchases: Purchase[], splits: Split[], categories: Category[], months: string[]) {
+async function techosSection(db: SupabaseClient, txs: Transaction[], purchases: Purchase[], splits: Split[], categories: Category[], months: string[]) {
   try {
-    const db = supabase();
     const [b, bc, s] = await Promise.all([
       db.from("budgets").select("id,name,monthly,weekly,max_per_tx,allowed_days"),
       db.from("budget_categories").select("budget_id,category_id"),
@@ -269,9 +272,9 @@ async function techosSection(txs: Transaction[], purchases: Purchase[], splits: 
 }
 
 /** Cuentas e inversiones valuadas hoy (null si todavía no cargaste nada o falta la migración 005) */
-async function patrimonioSection() {
+async function patrimonioSection(db: SupabaseClient, prices?: Prices | null) {
   try {
-    const p = await loadPatrimonio((await fetchPrices()) ?? undefined);
+    const p = await loadPatrimonio((prices === undefined ? await fetchPrices() : prices) ?? undefined, db);
     if (p.missing || !p.assets.length) return null;
     return {
       cotizaciones_al: p.prices.at,
