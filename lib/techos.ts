@@ -1,5 +1,5 @@
 import { installmentAmounts } from "./cards";
-import { daysInMonth, money, parseISO, toISO } from "./format";
+import { addMonths, daysInMonth, money, monthEnd, parseISO, toISO } from "./format";
 import { mine, type Purchase, type Recurring, type Split, type Transaction } from "./types";
 
 /**
@@ -9,6 +9,9 @@ import { mine, type Purchase, type Recurring, type Split, type Transaction } fro
  * - Gastos normales y fijos: su fecha.
  * - Compras con tarjeta: la FECHA DE COMPRA (no la del resumen). En cuotas, la cuota k
  *   cuenta en el mes de compra + (k − 1).
+ * - Planes que ya venías pagando (cargados desde una cuota > 1): su fecha de compra es la del día
+ *   en que los cargaste, no la real. Cada cuota cuenta en el mes de cierre del resumen en que se
+ *   paga (el mes anterior al pago), sin sumar (k − 1) de nuevo.
  * - Siempre tu parte (monto propio), así lo dividido cuenta solo lo tuyo.
  */
 
@@ -91,6 +94,18 @@ export function daysLabel(days: number[]) {
   return `${names.slice(0, -1).join(", ")} y ${names[names.length - 1]}`;
 }
 
+type PurchaseDates = Pick<Purchase, "purchased_on" | "first_period" | "from_installment">;
+
+/** Fecha en que cuenta para los techos la cuota k de una compra con tarjeta (y si es estimada) */
+export function installmentBudgetDate(p: PurchaseDates, k: number): { date: string; estimated: boolean } {
+  if (Math.max(1, p.from_installment) <= 1) return { date: shiftMonths(p.purchased_on, k - 1), estimated: false };
+  // Mes de cierre del resumen que paga esta cuota (el resumen se paga a principios del mes siguiente)
+  return { date: monthEnd(addMonths(addMonths(p.first_period, k - 1), -1)), estimated: true };
+}
+
+/** Fecha de compra: la real si la compra se cargó desde la cuota 1; si no, estimada (cierre del resumen de la cuota 1) */
+export const purchaseDate = (p: PurchaseDates) => installmentBudgetDate(p, 1);
+
 /** Todos los gastos ubicados en la fecha en que cuentan para los techos */
 export function budgetItems(txs: Transaction[], purchases: Purchase[], splits: Split[]): BudgetItem[] {
   const items: BudgetItem[] = [];
@@ -115,7 +130,7 @@ export function budgetItems(txs: Transaction[], purchases: Purchase[], splits: S
     const amounts = installmentAmounts(total, p.installments);
     for (let k = Math.max(1, p.from_installment); k <= p.installments; k++) {
       items.push({
-        date: shiftMonths(p.purchased_on, k - 1),
+        date: installmentBudgetDate(p, k).date,
         amount: r2(amounts[k - 1] * ratio),
         categoryId: p.category_id,
         purchaseId: p.id,

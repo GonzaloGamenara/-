@@ -8,7 +8,7 @@ import { txColumns } from "./columns";
 import { addMonths, currentMonth, monthEnd, monthStart } from "./format";
 import { installmentAmounts, nextPaymentPeriod, remaining } from "./cards";
 import { fetchPrices, loadPatrimonio, type Prices } from "./patrimonioCore";
-import { budgetItems, budgetStatus, configFor, daysLabel, toConfig, type BudgetConfig } from "./techos";
+import { budgetItems, budgetStatus, configFor, daysLabel, installmentBudgetDate, purchaseDate, toConfig, type BudgetConfig } from "./techos";
 import { launchMonth } from "./launch";
 import { groupBalances, type SharedExpense, type SharedGroup, type SharedMember, type SharedPayment } from "./shared";
 import { mine, type Card, type Category, type Purchase, type Recurring, type Split, type Transaction } from "./types";
@@ -89,6 +89,18 @@ export async function buildDataset(range: Range, alias: string, opts: { db?: Sup
           : share != null
             ? "gasto_dividido"
             : "manual";
+    // Tarjeta: cuándo compraste (real o estimada) y en qué mes lo cuenta el techo
+    const k = t.installment ?? 1;
+    const tarjeta = t.card_id
+      ? p
+        ? {
+            fecha_compra: purchaseDate(p).date,
+            fecha_compra_estimada: purchaseDate(p).estimated,
+            mes_techo: installmentBudgetDate(p, k).date.slice(0, 7),
+          }
+        : // Suscripción de tarjeta: cuenta el día del resumen
+          { fecha_compra: null, fecha_compra_estimada: false, mes_techo: t.occurred_on.slice(0, 7) }
+      : null;
     return {
       fecha: t.occurred_on,
       tipo: t.kind === "expense" ? "gasto" : "ingreso",
@@ -99,6 +111,7 @@ export async function buildDataset(range: Range, alias: string, opts: { db?: Sup
       origen: source,
       tarjeta: cardName(t.card_id),
       cuota: t.installment && p ? `${t.installment}/${p.installments}` : null,
+      ...(tarjeta ?? {}),
     };
   });
 
@@ -198,7 +211,8 @@ export async function buildDataset(range: Range, alias: string, opts: { db?: Sup
       monto_propio: "Lo que realmente te corresponde (si el gasto fue dividido, solo tu parte). Usar este para analizar tus gastos.",
       origen:
         "manual = cargado a mano; fijo = gasto/ingreso mensual automático; suscripcion_tarjeta = fijo cobrado en tarjeta; compra_tarjeta = compra en 1 pago con tarjeta; cuota_tarjeta = una cuota de una compra en cuotas; gasto_dividido = gasto que pagaste y dividiste (monto_propio es tu parte); cuenta_compartida = tu parte de una cuenta dividida con otras personas.",
-      fechas_tarjeta: "Las compras con tarjeta figuran en la fecha de pago del resumen en que caen, no en la fecha de compra.",
+      fechas_tarjeta:
+        "Las compras con tarjeta figuran en la fecha de pago del resumen en que caen, no en la fecha de compra. En cada una: fecha_compra (si fecha_compra_estimada = true no se conoce la real: es un plan que ya venías pagando y se estima con el cierre del resumen de la cuota 1) y mes_techo (el mes en que la cuenta el techo: la cuota k en el mes de compra + k − 1; en planes que ya venías pagando, el mes de cierre del resumen en que se paga). Las suscripciones de tarjeta cuentan en la fecha del resumen.",
       periodo: "Los movimientos llegan hasta fin del mes actual; las cuotas de meses siguientes están en tarjetas.planes_en_cuotas (comprometido).",
     },
     resumen_mensual: monthly,
@@ -400,12 +414,15 @@ export function toMarkdown(d: Dataset) {
   }
 
   L.push(`## Movimientos (${d.movimientos.length})`);
-  L.push("| Fecha | Tipo | Monto propio | Pagado | Categoría | Detalle | Origen | Tarjeta | Cuota |");
-  L.push("|---|---|---:|---:|---|---|---|---|---|");
-  for (const t of d.movimientos)
+  L.push("| Fecha | Tipo | Monto propio | Pagado | Categoría | Detalle | Origen | Tarjeta | Cuota | Compra | Mes techo |");
+  L.push("|---|---|---:|---:|---|---|---|---|---|---|---|");
+  for (const t of d.movimientos) {
+    const compra = "fecha_compra" in t ? (t.fecha_compra ? `${t.fecha_compra}${t.fecha_compra_estimada ? " (estimada)" : ""}` : "–") : "–";
+    const techo = "mes_techo" in t ? t.mes_techo : "–";
     L.push(
-      `| ${t.fecha} | ${t.tipo} | ${$(t.monto_propio)} | ${$(t.monto_pagado)} | ${t.categoria} | ${t.detalle.replace(/\|/g, "/")} | ${t.origen} | ${t.tarjeta ?? "–"} | ${t.cuota ?? "–"} |`,
+      `| ${t.fecha} | ${t.tipo} | ${$(t.monto_propio)} | ${$(t.monto_pagado)} | ${t.categoria} | ${t.detalle.replace(/\|/g, "/")} | ${t.origen} | ${t.tarjeta ?? "–"} | ${t.cuota ?? "–"} | ${compra} | ${techo} |`,
     );
+  }
   L.push("");
   L.push("## Datos completos (JSON)");
   L.push("```json");
@@ -419,9 +436,22 @@ export function toCsv(d: Dataset) {
   const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
   const n = (v: number) => String(v).replace(".", ",");
   const rows = [
-    "fecha;tipo;monto_propio;monto_pagado;categoria;detalle;origen;tarjeta;cuota",
+    "fecha;tipo;monto_propio;monto_pagado;categoria;detalle;origen;tarjeta;cuota;fecha_compra;fecha_compra_estimada;mes_techo",
     ...d.movimientos.map((t) =>
-      [t.fecha, t.tipo, n(t.monto_propio), n(t.monto_pagado), esc(t.categoria), esc(t.detalle), t.origen, esc(t.tarjeta ?? ""), t.cuota ?? ""].join(";"),
+      [
+        t.fecha,
+        t.tipo,
+        n(t.monto_propio),
+        n(t.monto_pagado),
+        esc(t.categoria),
+        esc(t.detalle),
+        t.origen,
+        esc(t.tarjeta ?? ""),
+        t.cuota ?? "",
+        ("fecha_compra" in t && t.fecha_compra) || "",
+        "fecha_compra_estimada" in t ? (t.fecha_compra_estimada ? "sí" : "no") : "",
+        ("mes_techo" in t && t.mes_techo) || "",
+      ].join(";"),
     ),
   ];
   return "﻿" + rows.join("\n");
