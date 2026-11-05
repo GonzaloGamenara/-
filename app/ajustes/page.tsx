@@ -45,6 +45,7 @@ export default function Ajustes() {
 
       <Group title="Herramientas">
         <Row href="/dividir" icon={<SplitIcon width={20} height={20} />} title="Dividir cuentas" sub="Quién pagó qué y quién le debe a quién" />
+        <Row href="/cierre" icon="📊" title="Cierre de mes" sub="Cómo te fue: ahorro, techos y tus gastos más grandes" />
         <Row href="/importar" icon="📥" title="Importar movimientos" sub="Desde un archivo, sin duplicar lo que ya cargaste" />
         <Row href="/ajustes/agente" icon="🤖" title="Agente de IA" sub="Un token para que tu agente consulte tus finanzas" />
       </Group>

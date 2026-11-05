@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { installmentAmounts, nextPaymentPeriod } from "@/lib/cards";
+import { installmentAmounts, periodForPurchase } from "@/lib/cards";
 import { money, monthLabelCompact, toISO, todayISO } from "@/lib/format";
 import { Sheet } from "./Sheet";
 import { CategoryChips } from "./CategoryChips";
@@ -171,7 +171,7 @@ export function QuickAdd() {
         category_id: catId,
         total_amount: amount,
         installments: cuotas,
-        first_period: nextPaymentPeriod(card),
+        first_period: periodForPurchase(card, date),
         from_installment: 1,
         purchased_on: date,
         splits: [],
@@ -356,7 +356,8 @@ export function QuickAdd() {
                 </button>
               </div>
               <p className="text-xs text-muted">
-                Va al resumen de {monthLabelCompact(nextPaymentPeriod(card))} (día {card.due_day})
+                Va al resumen de {monthLabelCompact(periodForPurchase(card, date))} (paga el {card.due_day}
+                {card.closing_day ? `, cierra el ${card.closing_day}` : ""})
                 {cuotas > 1 && amount > 0 && ` · ${cuotas} cuotas de ${money(Math.round(amount / cuotas))}`}
               </p>
             </>

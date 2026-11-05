@@ -471,3 +471,10 @@ $$;
 
 revoke all on function public.agent_read(text, text, date) from public;
 grant execute on function public.agent_read(text, text, date) to anon, authenticated;
+
+
+-- ---------------------------------------------------------------
+-- 011 · Día de cierre de cada tarjeta
+-- ---------------------------------------------------------------
+
+alter table public.cards add column if not exists closing_day int check (closing_day between 1 and 31);

@@ -14,9 +14,10 @@ import { DayBars, Donut, StackBar } from "@/components/charts";
 import { TxRow } from "@/components/TxRow";
 import { ArrowUpRight } from "@/components/Icons";
 import { HomeShortcuts } from "@/components/HomeShortcuts";
-import { TechosCard } from "@/components/Techos";
+import { HoyPodes, TechosCard } from "@/components/Techos";
 import { SubsAlert } from "@/components/SubsAlert";
 import { RachaBar } from "@/components/Racha";
+import { CierreBanner } from "@/components/CierreBanner";
 
 export default function Home() {
   const { month, txs, prevTxs, categories, recurring, loading, openSheet, splits, cards } = useStore();
@@ -42,6 +43,7 @@ export default function Home() {
       <PageHeader title="Resumen" right={<div className="flex items-center gap-1.5"><EyeToggle /><MonthSwitcher /></div>} />
 
       <RachaBar />
+      <CierreBanner delay={20} />
 
       {loading && txs.length === 0 ? (
         <div className="grid gap-4">
@@ -131,7 +133,8 @@ export default function Home() {
             )}
           </section>
 
-          {/* Techos: lo más accionable del mes, justo después del resumen */}
+          {/* Lo más accionable del día y del mes, justo después del resumen */}
+          {s.isCurrent && <HoyPodes delay={50} />}
           <TechosCard delay={60} />
           {s.isCurrent && <SubsAlert delay={80} />}
 

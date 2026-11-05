@@ -5,8 +5,8 @@ import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { useCardTxs } from "@/lib/useCardTxs";
-import { installmentFor, nextPaymentPeriod, remaining } from "@/lib/cards";
-import { currentMonth, dueDate, money, monthEnd, monthLabelCompact, monthStart } from "@/lib/format";
+import { closingDateFor, installmentFor, nextPaymentPeriod, remaining } from "@/lib/cards";
+import { currentMonth, dueDate, money, monthEnd, monthLabelCompact, monthStart, todayISO } from "@/lib/format";
 import { mine, type Recurring, type Transaction } from "@/lib/types";
 import { CardTile } from "@/components/CardTile";
 import { CardForm } from "@/components/CardForm";
@@ -104,7 +104,13 @@ export default function CardDetail() {
           </button>
         </div>
         <p className="mt-6 text-xs text-white/75">
-          Resumen de {monthLabelCompact(shown)} · se paga el {Number(dueDate(shown, card.due_day).slice(8, 10))}
+          Resumen de {monthLabelCompact(shown)}
+          {(() => {
+            const c = closingDateFor(card, shown);
+            return c ? ` · ${c < todayISO() ? "cerró" : "cierra"} el ${Number(c.slice(8, 10))}/${Number(c.slice(5, 7))}` : "";
+          })()}{" "}
+          · se paga
+          el {Number(dueDate(shown, card.due_day).slice(8, 10))}
         </p>
         <p className="num text-3xl font-semibold">{rows === null ? "…" : money(total)}</p>
         {myTotal < total - 0.5 && <p className="mt-1 text-xs text-white/80">Tu parte: {money(myTotal)}</p>}

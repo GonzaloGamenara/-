@@ -52,6 +52,8 @@ export interface Card {
   name: string;
   color: string;
   due_day: number;
+  /** Día de cierre del resumen (opcional): las compras posteriores van al resumen siguiente */
+  closing_day?: number | null;
   /** De qué cuenta se debita el resumen (vacío = la principal) */
   account_id?: string | null;
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useStore, type SplitShare } from "@/lib/store";
-import { installmentAmounts, nextPaymentPeriod } from "@/lib/cards";
+import { installmentAmounts, periodForPurchase } from "@/lib/cards";
 import { launchMonth } from "@/lib/launch";
 import { addMonths, money, monthLabelCompact, parseAmount, todayISO } from "@/lib/format";
 import { Sheet } from "./Sheet";
@@ -38,9 +38,16 @@ export function PurchaseSheet() {
   const minPeriod = prelaunch ? launchMonth() : undefined;
   const [nextPeriod, setNextPeriod] = useState(() => {
     if (editing) return addMonths(editing.first_period, editing.from_installment - 1);
-    const p = card ? nextPaymentPeriod(card) : addMonths(todayISO().slice(0, 7), 1);
+    const p = card ? periodForPurchase(card, todayISO()) : addMonths(todayISO().slice(0, 7), 1);
     return minPeriod && p < minPeriod ? minPeriod : p;
   });
+  // El resumen sigue a la fecha de compra (y al día de cierre), salvo que lo elijas a mano
+  const [periodTouched, setPeriodTouched] = useState(false);
+  const autoPeriod = (c: typeof card, d: string) => {
+    if (editing || periodTouched || !c) return;
+    const p = periodForPurchase(c, d);
+    setNextPeriod(minPeriod && p < minPeriod ? minPeriod : p);
+  };
   const [catId, setCatId] = useState<string | null>(editing?.category_id ?? null);
   // Categoría automática según la descripción, salvo que ya hayas elegido una
   const { categories } = useStore();
@@ -127,10 +134,7 @@ export function PurchaseSheet() {
                 type="button"
                 onClick={() => {
                   setCardId(c.id);
-                  if (!editing) {
-                    const p = nextPaymentPeriod(c);
-                    setNextPeriod(minPeriod && p < minPeriod ? minPeriod : p);
-                  }
+                  autoPeriod(c, date);
                 }}
                 aria-pressed={c.id === cardId}
                 className={`press flex shrink-0 items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium ${c.id === cardId ? "bg-fg text-bg" : "bg-inset text-muted"}`}
@@ -223,7 +227,14 @@ export function PurchaseSheet() {
 
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
           <span>{n > 1 ? `La cuota ${paidCount + 1} se paga en` : "Se paga en el resumen de"}</span>
-          <MonthStepper value={nextPeriod} onChange={setNextPeriod} min={minPeriod} />
+          <MonthStepper
+            value={nextPeriod}
+            onChange={(v) => {
+              setNextPeriod(v);
+              setPeriodTouched(true);
+            }}
+            min={minPeriod}
+          />
         </div>
 
         {total > 0 && (
@@ -284,7 +295,11 @@ export function PurchaseSheet() {
 
         <label className="flex items-center justify-between gap-3 text-sm text-muted">
           Fecha de compra
-          <input type="date" value={date} max={todayISO()} onChange={(e) => e.target.value && setDate(e.target.value)} className="w-40 min-w-0 rounded-xl border border-line bg-inset px-3 py-2 text-fg" />
+          <input type="date" value={date} max={todayISO()} onChange={(e) => {
+              if (!e.target.value) return;
+              setDate(e.target.value);
+              if (!started) autoPeriod(card, e.target.value);
+            }} className="w-40 min-w-0 rounded-xl border border-line bg-inset px-3 py-2 text-fg" />
         </label>
 
         <div className="grid gap-2">

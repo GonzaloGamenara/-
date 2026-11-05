@@ -140,10 +140,12 @@ export default function Fijos() {
         return (
           <section key={card.id} className="rise">
             <Link href={`/tarjetas/${card.id}`} className="press mb-1 flex items-center gap-2 px-1">
-              <span className="h-4 w-6 rounded-[5px]" style={{ background: `linear-gradient(135deg, ${card.color}, color-mix(in srgb, ${card.color} 50%, #000))` }} />
-              <span className="text-sm font-semibold">{card.name}</span>
-              <span className="text-xs text-muted">· paga el {card.due_day}</span>
-              <span className="num ml-auto text-sm font-semibold">{money(next)}</span>
+              <span className="h-4 w-6 shrink-0 rounded-[5px]" style={{ background: `linear-gradient(135deg, ${card.color}, color-mix(in srgb, ${card.color} 50%, #000))` }} />
+              <span className="min-w-0 truncate text-sm font-semibold">{card.name}</span>
+              <span className="shrink-0 whitespace-nowrap text-xs text-muted">
+                · {card.closing_day ? `cierra ${card.closing_day} · ` : ""}paga {card.due_day}
+              </span>
+              <span className="num ml-auto shrink-0 whitespace-nowrap text-sm font-semibold">{money(next)}</span>
               <ChevronRight width={16} height={16} className="text-muted" />
             </Link>
             <ul className="glass divide-y divide-line overflow-hidden rounded-3xl">

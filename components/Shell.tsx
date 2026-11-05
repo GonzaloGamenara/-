@@ -11,7 +11,7 @@ import { useIosViewportFix } from "./useIosViewportFix";
 import { PrelaunchBanner, PrelaunchCard, usePrelaunch } from "./LaunchGate";
 
 const NAV = [
-  { href: "/", label: "Inicio", Icon: HomeIcon, also: ["/patrimonio"] as string[] },
+  { href: "/", label: "Inicio", Icon: HomeIcon, also: ["/patrimonio", "/cierre"] as string[] },
   { href: "/movimientos", label: "Movimientos", Icon: ListIcon, also: [] as string[] },
   null, // FAB
   { href: "/fijos", label: "Plan", Icon: PlanIcon, also: ["/tarjetas", "/techos", "/suscripciones"] },

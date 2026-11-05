@@ -335,21 +335,16 @@ export function DataProvider({
           db.from("categories").select("*").order("sort").order("created_at"),
           db.from("recurring").select("*").order("day"),
           txQuery(`${txColumns},account_id`) as unknown as Promise<Res>,
-          cardsQuery("id,name,color,due_day,account_id") as unknown as Promise<Res>,
+          // Todas las columnas: así las de migraciones nuevas (cuenta, día de cierre) llegan si existen
+          cardsQuery("*") as unknown as Promise<Res>,
           db.from("purchases").select("id,card_id,description,category_id,total_amount,installments,first_period,from_installment,purchased_on").order("purchased_on", { ascending: false }),
           db.from("splits").select("id,transaction_id,purchase_id,name,amount,settled_on").order("created_at", { ascending: false }),
           db.from("assets").select("id,name,kind,sort,is_default").eq("kind", "cuenta").order("sort"),
         ]);
         // Sin la migración 008: sin cuenta por movimiento, todo lo demás igual
-        const acctReady = !acctRes.error && !isMissingSchema(txsFull.error) && !isMissingSchema(cardsFull.error);
-        let txsNew = txsFull;
-        let cardsRes = cardsFull;
-        if (!acctReady) {
-          [txsNew, cardsRes] = await Promise.all([
-            isMissingSchema(txsFull.error) ? (txQuery(txColumns) as unknown as Promise<Res>) : txsFull,
-            isMissingSchema(cardsFull.error) ? (cardsQuery("id,name,color,due_day") as unknown as Promise<Res>) : cardsFull,
-          ]);
-        }
+        const acctReady = !acctRes.error && !isMissingSchema(txsFull.error);
+        const cardsRes = cardsFull;
+        const txsNew = isMissingSchema(txsFull.error) ? ((await txQuery(txColumns)) as unknown as Res) : txsFull;
         const acctList = acctReady ? ((acctRes.data ?? []) as Account[]) : [];
         const defAcct = acctReady ? defaultAccountId(acctList) : null;
         setAccounts(acctList);
@@ -626,6 +621,8 @@ export function DataProvider({
         color: c.color || "#7c5cff",
         due_day: c.due_day,
         ...(accountsReady && c.account_id !== undefined ? { account_id: c.account_id } : {}),
+        // Migración 011: solo si la columna existe
+        ...(c.closing_day !== undefined && cards.some((x) => "closing_day" in x) ? { closing_day: c.closing_day || null } : {}),
       };
       if (c.id) {
         const before = cards.find((x) => x.id === c.id);

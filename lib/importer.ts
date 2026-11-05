@@ -1,5 +1,6 @@
 import type { Asset, AssetKind, Card, Category, Kind, Purchase, Recurring, Transaction } from "./types";
 import { addMonths, parseISO } from "./format";
+import { periodForPurchase } from "./cards";
 
 /**
  * Importación de movimientos desde un archivo JSON (por ejemplo, el que arma
@@ -38,6 +39,7 @@ import { addMonths, parseISO } from "./format";
  *     { "tarjeta": "Visa Galicia", "fecha": "2026-10-03", "monto": 195559.06, "nota": "Publicidad Facebook",
  *       "categoria": "Costo de ventas", "resumen": "2026-11", "cuotas": 1, "detalle": "USD 82,89 + impuestos" }
  *   ]
+ * Sin "resumen": se calcula con el día de cierre de la tarjeta (o el mes siguiente a la compra, si no lo tiene).
  * Si ya hay una compra en esa tarjeta con la misma fecha y un monto parecido, se marca como repetida.
  *
  * Fijos y suscripciones (se busca por nombre y tarjeta; si no existe, se crea):
@@ -275,7 +277,8 @@ export function parseImport(text: string): ImportFile {
       throw new Error(`Compra con tarjeta ${i + 1}: falta la tarjeta, la fecha (AAAA-MM-DD) o el monto`);
     }
     const cuotas = Number.isInteger(Number(x.cuotas)) && Number(x.cuotas) >= 1 ? Number(x.cuotas) : 1;
-    const resumen = typeof x.resumen === "string" && /^\d{4}-\d{2}$/.test(x.resumen) ? x.resumen : addMonths(x.fecha.slice(0, 7), 1);
+    // Sin resumen: se calcula con la tarjeta al planificar (día de cierre si lo tiene)
+    const resumen = typeof x.resumen === "string" && /^\d{4}-\d{2}$/.test(x.resumen) ? x.resumen : "";
     return {
       tarjeta: x.tarjeta.trim(),
       fecha: x.fecha,
@@ -561,6 +564,7 @@ export interface PlannedPurchase {
 export function planPurchases(file: ImportFile, cards: Card[], purchases: Purchase[], categories: Category[]): PlannedPurchase[] {
   return file.compras.map((item, key) => {
     const card = cards.find((c) => norm(c.name) === norm(item.tarjeta)) ?? null;
+    if (!item.resumen) item = { ...item, resumen: card?.closing_day ? periodForPurchase(card, item.fecha) : addMonths(item.fecha.slice(0, 7), 1) };
     const match =
       (card &&
         purchases.find(

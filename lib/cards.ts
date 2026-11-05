@@ -12,8 +12,28 @@ export function installmentAmounts(total: number, n: number) {
 
 /** Mes del próximo pago de la tarjeta: este mes si todavía no pasó el día de pago, si no el siguiente. */
 export function nextPaymentPeriod(card: Pick<Card, "due_day">, today = todayISO()) {
-  const ym = currentMonth();
+  const ym = today.slice(0, 7) || currentMonth();
   return dueDate(ym, card.due_day) >= today ? ym : addMonths(ym, 1);
+}
+
+/**
+ * Resumen (mes de pago) en el que entra una compra hecha en `date`.
+ * Con día de cierre: va al resumen que cierra ese día o después, y ese resumen se paga en el primer
+ * día de pago posterior al cierre (ej: cierra el 29, paga el 9 → una compra del 31/10 se paga en diciembre).
+ * Sin día de cierre: el próximo resumen a pagar (como siempre).
+ */
+export function periodForPurchase(card: Pick<Card, "due_day" | "closing_day">, date: string) {
+  if (!card.closing_day) return nextPaymentPeriod(card);
+  const ym = date.slice(0, 7);
+  const closeYm = date <= dueDate(ym, card.closing_day) ? ym : addMonths(ym, 1);
+  return dueDate(closeYm, card.due_day) > dueDate(closeYm, card.closing_day) ? closeYm : addMonths(closeYm, 1);
+}
+
+/** Fecha de cierre del resumen que se paga en `period` (null si la tarjeta no tiene día de cierre) */
+export function closingDateFor(card: Pick<Card, "due_day" | "closing_day">, period: string) {
+  if (!card.closing_day) return null;
+  const sameMonth = dueDate(period, card.due_day) > dueDate(period, card.closing_day);
+  return dueDate(sameMonth ? period : addMonths(period, -1), card.closing_day);
 }
 
 /** Genera los movimientos (uno por cuota) de una compra con tarjeta. */
