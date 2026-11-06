@@ -85,110 +85,113 @@ export default function Patrimonio() {
           </Link>
         </section>
       ) : (
-        <>
-          <section className="glass rise relative overflow-hidden rounded-[28px] p-5">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full opacity-40 blur-3xl"
-              style={{ background: "radial-gradient(closest-side, var(--inc), transparent)" }}
-            />
-            <p className="relative text-sm text-muted">{p.cardDebt > 0 ? "Tenés, descontando las tarjetas" : "Tenés en total"}</p>
-            <div className="relative mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
-              <span className="num text-[clamp(2.25rem,11vw,3.25rem)] font-semibold leading-none">{moneyRound(p.net)}</span>
-              {delta !== null && Math.abs(delta) >= 0.001 && (
-                <span
-                  className={`inline-flex items-center gap-0.5 rounded-full px-2.5 py-1 text-xs font-semibold ${delta < 0 ? "bg-exp/15 text-exp" : "bg-inc/15 text-inc"}`}
-                  title={`Comparado con el cierre de ${monthLabelCompact(prev!.period)}`}
-                >
-                  <ArrowUpRight width={12} height={12} className={delta < 0 ? "rotate-90" : ""} />
-                  {Math.abs(Math.round(delta * 1000) / 10)}% vs {monthLabelCompact(prev!.period).toLowerCase()}
-                </span>
-              )}
-            </div>
-            {usd !== null && (
-              <p className="relative mt-1.5 text-sm text-muted">
-                ≈ <span className="num font-medium text-fg">{hideAmounts ? "US$ ••••" : `US$ ${new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(usd)}`}</span>{" "}
-                · MEP <span className="num">{money(p.prices.mep!)}</span>
-              </p>
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,25rem)_minmax(0,1fr)] lg:items-start lg:gap-6">
+          <div className="lg:sticky lg:top-8">
+              <section className="glass rise relative overflow-hidden rounded-[28px] p-5">
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full opacity-40 blur-3xl"
+                  style={{ background: "radial-gradient(closest-side, var(--inc), transparent)" }}
+                />
+                <p className="relative text-sm text-muted">{p.cardDebt > 0 ? "Tenés, descontando las tarjetas" : "Tenés en total"}</p>
+                <div className="relative mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <span className="num text-[clamp(2.25rem,11vw,3.25rem)] font-semibold leading-none">{moneyRound(p.net)}</span>
+                  {delta !== null && Math.abs(delta) >= 0.001 && (
+                    <span
+                      className={`inline-flex items-center gap-0.5 rounded-full px-2.5 py-1 text-xs font-semibold ${delta < 0 ? "bg-exp/15 text-exp" : "bg-inc/15 text-inc"}`}
+                      title={`Comparado con el cierre de ${monthLabelCompact(prev!.period)}`}
+                    >
+                      <ArrowUpRight width={12} height={12} className={delta < 0 ? "rotate-90" : ""} />
+                      {Math.abs(Math.round(delta * 1000) / 10)}% vs {monthLabelCompact(prev!.period).toLowerCase()}
+                    </span>
+                  )}
+                </div>
+                {usd !== null && (
+                  <p className="relative mt-1.5 text-sm text-muted">
+                    ≈ <span className="num font-medium text-fg">{hideAmounts ? "US$ ••••" : `US$ ${new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(usd)}`}</span>{" "}
+                    · MEP <span className="num">{money(p.prices.mep!)}</span>
+                  </p>
+                )}
+
+                <div className="relative mt-5 grid gap-2.5">
+                  <StackBar
+                    parts={[
+                      { key: "disp", value: Math.max(0, p.disponible), color: "var(--accent-2)" },
+                      { key: "inv", value: Math.max(0, p.invested), color: "var(--inc)" },
+                      { key: "debt", value: Math.max(0, p.debts), color: "var(--exp)" },
+                    ]}
+                  />
+                  <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                    <Legend color="var(--accent-2)" label="Disponible hoy" value={p.disponible} />
+                    <Legend color="var(--inc)" label="Invertido" value={p.invested} />
+                    {p.debts > 0 && <Legend color="var(--exp)" label="Deudas" value={-p.debts} />}
+                  </ul>
+                </div>
+
+                {/* Lo que de verdad podés usar */}
+                <div className="relative mt-4 rounded-2xl bg-inset px-4 py-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-sm font-semibold">Disponible real</span>
+                    <span className={`num text-lg font-semibold ${p.disponibleReal < 0 ? "text-exp" : ""}`}>{moneyRound(p.disponibleReal)}</span>
+                  </div>
+                  <p className="mt-0.5 text-[11px] leading-snug text-muted">
+                    Disponible hoy{p.debts > 0 ? " − deudas" : ""}
+                    {fijosPendientes > 0 ? ` − fijos que faltan este mes (${money(fijosPendientes)})` : ""}
+                    {p.debts <= 0 && fijosPendientes <= 0 ? ": no tenés deudas ni fijos pendientes" : ""}
+                  </p>
+                </div>
+
+                {p.snapshots.length >= 2 && <Evolution snapshots={p.snapshots} />}
+              </section>
+          </div>
+          <div className="grid min-w-0 gap-4">
+            {!accountsReady && hasCuentas && (
+              <div className="glass rounded-3xl border-l-4 border-l-amber-500 p-4 text-sm">
+                <b>Para que los saldos se muevan solos con lo que cargás</b>
+                <p className="mt-1 text-muted">
+                  Corré <code className="text-fg">supabase/migrations/008_cuentas.sql</code> en Supabase → SQL Editor → Run y recargá la app.
+                </p>
+              </div>
             )}
 
-            <div className="relative mt-5 grid gap-2.5">
-              <StackBar
-                parts={[
-                  { key: "disp", value: Math.max(0, p.disponible), color: "var(--accent-2)" },
-                  { key: "inv", value: Math.max(0, p.invested), color: "var(--inc)" },
-                  { key: "debt", value: Math.max(0, p.debts), color: "var(--exp)" },
-                ]}
-              />
-              <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-                <Legend color="var(--accent-2)" label="Disponible hoy" value={p.disponible} />
-                <Legend color="var(--inc)" label="Invertido" value={p.invested} />
-                {p.debts > 0 && <Legend color="var(--exp)" label="Deudas" value={-p.debts} />}
-              </ul>
-            </div>
+            <Group title="Disponible hoy" total={p.disponible} rows={disponibles} onOpen={open} />
+            <Group title="Invertido" total={p.invested} rows={inversiones} onOpen={open} />
+            {(enRojo.length > 0 || p.cardDebt > 0) && (
+              <Group title="Deudas" total={-p.debts} rows={enRojo} onOpen={open}>
+                {p.cardDebt > 0 && (
+                  <li>
+                    <Link href="/fijos" className="press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left hover:bg-surface">
+                      <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-inset text-xl">💳</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[15px] font-medium">Tarjetas por pagar</span>
+                        <span className="block truncate text-xs text-muted">Compras y cuotas que todavía no se debitaron</span>
+                      </span>
+                      <span className="num shrink-0 text-[15px] font-semibold text-exp">−{money(p.cardDebt)}</span>
+                      <ChevronRight width={18} height={18} className="shrink-0 text-muted" />
+                    </Link>
+                  </li>
+                )}
+              </Group>
+            )}
 
-            {/* Lo que de verdad podés usar */}
-            <div className="relative mt-4 rounded-2xl bg-inset px-4 py-3">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-sm font-semibold">Disponible real</span>
-                <span className={`num text-lg font-semibold ${p.disponibleReal < 0 ? "text-exp" : ""}`}>{moneyRound(p.disponibleReal)}</span>
-              </div>
-              <p className="mt-0.5 text-[11px] leading-snug text-muted">
-                Disponible hoy{p.debts > 0 ? " − deudas" : ""}
-                {fijosPendientes > 0 ? ` − fijos que faltan este mes (${money(fijosPendientes)})` : ""}
-                {p.debts <= 0 && fijosPendientes <= 0 ? ": no tenés deudas ni fijos pendientes" : ""}
+            <button
+              onClick={() => setEditing({ asset: { kind: "cuenta" } })}
+              className="press flex items-center justify-center gap-1.5 rounded-2xl border border-dashed border-line py-3.5 text-sm font-semibold text-muted"
+            >
+              <PlusIcon width={16} height={16} /> Agregar cuenta o inversión
+            </button>
+
+            {anyCedear && (
+              <p className="text-center text-xs text-muted">
+                {anyStale ? "Algunas cotizaciones no llegaron: se usa el último precio guardado. " : ""}
+                Precios {ago(p.prices.at)} ·{" "}
+                <button onClick={p.refreshPrices} disabled={p.refreshing} className="font-semibold text-fg underline underline-offset-4 disabled:opacity-50">
+                  {p.refreshing ? "Actualizando…" : "Actualizar"}
+                </button>
               </p>
-            </div>
-
-            {p.snapshots.length >= 2 && <Evolution snapshots={p.snapshots} />}
-          </section>
-
-          {!accountsReady && hasCuentas && (
-            <div className="glass rounded-3xl border-l-4 border-l-amber-500 p-4 text-sm">
-              <b>Para que los saldos se muevan solos con lo que cargás</b>
-              <p className="mt-1 text-muted">
-                Corré <code className="text-fg">supabase/migrations/008_cuentas.sql</code> en Supabase → SQL Editor → Run y recargá la app.
-              </p>
-            </div>
-          )}
-
-          <Group title="Disponible hoy" total={p.disponible} rows={disponibles} onOpen={open} />
-          <Group title="Invertido" total={p.invested} rows={inversiones} onOpen={open} />
-          {(enRojo.length > 0 || p.cardDebt > 0) && (
-            <Group title="Deudas" total={-p.debts} rows={enRojo} onOpen={open}>
-              {p.cardDebt > 0 && (
-                <li>
-                  <Link href="/fijos" className="press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left hover:bg-surface">
-                    <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-inset text-xl">💳</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px] font-medium">Tarjetas por pagar</span>
-                      <span className="block truncate text-xs text-muted">Compras y cuotas que todavía no se debitaron</span>
-                    </span>
-                    <span className="num shrink-0 text-[15px] font-semibold text-exp">−{money(p.cardDebt)}</span>
-                    <ChevronRight width={18} height={18} className="shrink-0 text-muted" />
-                  </Link>
-                </li>
-              )}
-            </Group>
-          )}
-
-          <button
-            onClick={() => setEditing({ asset: { kind: "cuenta" } })}
-            className="press flex items-center justify-center gap-1.5 rounded-2xl border border-dashed border-line py-3.5 text-sm font-semibold text-muted"
-          >
-            <PlusIcon width={16} height={16} /> Agregar cuenta o inversión
-          </button>
-
-          {anyCedear && (
-            <p className="text-center text-xs text-muted">
-              {anyStale ? "Algunas cotizaciones no llegaron: se usa el último precio guardado. " : ""}
-              Precios {ago(p.prices.at)} ·{" "}
-              <button onClick={p.refreshPrices} disabled={p.refreshing} className="font-semibold text-fg underline underline-offset-4 disabled:opacity-50">
-                {p.refreshing ? "Actualizando…" : "Actualizar"}
-              </button>
-            </p>
-          )}
-        </>
+            )}
+          </div>
+        </div>
       )}
 
       {p.error && <p className="rounded-2xl bg-exp/10 px-3 py-2 text-sm text-exp">{p.error}</p>}

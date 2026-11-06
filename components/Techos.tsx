@@ -201,8 +201,8 @@ export function HoyPodes({ delay = 0 }: { delay?: number }) {
       <p className="text-xs text-muted">
         {h.pool > 0 ? (
           <>
-            Te quedan <b className="num text-fg">{moneyRound(h.pool)}</b> en tus techos para {h.daysLeft === 1 ? "hoy" : `${h.daysLeft} días`} ·{" "}
-            <span className="num">{moneyRound(h.daily)}</span> por día
+            Te quedan <b className="num whitespace-nowrap text-fg">{moneyRound(h.pool)}</b> en tus techos para {h.daysLeft === 1 ? "hoy" : `${h.daysLeft} días`} ·{" "}
+            <span className="num whitespace-nowrap">{moneyRound(h.daily)} por día</span>
             {h.pending > 0 && <> (ya descontados {moneyRound(h.pending)} de fijos)</>}
           </>
         ) : (
