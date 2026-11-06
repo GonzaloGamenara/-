@@ -153,7 +153,7 @@ export function Sheet({
       <div ref={drag} className={`relative w-full max-w-lg ${vv ? "h-full" : ""} flex items-end`}>
         <div
           ref={panel}
-          className={`sheet-in relative w-full overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-[32px] border border-line bg-bg px-5 pt-2 shadow-2xl sm:rounded-[32px] ${
+          className={`sheet-in relative w-full overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-3xl border border-line bg-bg px-5 pt-2 shadow-2xl sm:rounded-2xl ${
             vv ? "max-h-full rounded-b-none" : tall ? "sheet-tall" : "sheet-normal"
           }`}
           style={vv ? { paddingBottom: "1.25rem" } : { paddingBottom: "calc(max(1.25rem, env(safe-area-inset-bottom)) + var(--ios-gap, 0px))" }}

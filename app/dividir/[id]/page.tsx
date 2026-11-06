@@ -72,7 +72,7 @@ export default function GroupPage() {
       </header>
 
       {/* Resumen */}
-      <section className="glass rise rounded-[28px] p-5">
+      <section className="glass rise rounded-2xl p-5">
         <div className="flex items-end justify-between gap-3">
           <div>
             <p className="text-xs text-muted">Total gastado</p>
@@ -105,7 +105,7 @@ export default function GroupPage() {
         <div className="flex flex-wrap items-center gap-1.5">
           {ms.map((m) => (
             <span key={m.id} className="flex shrink-0 items-center gap-1.5 rounded-full bg-surface py-1.5 pl-1.5 pr-3 text-sm">
-              <span className={`grid size-6 place-items-center rounded-full text-[11px] font-bold ${m.is_me ? "bg-accent2/30" : "bg-inset"}`}>
+              <span className={`grid size-6 place-items-center rounded-full text-xs font-bold ${m.is_me ? "bg-accent2/30" : "bg-inset"}`}>
                 {m.is_me ? "Yo" : m.name[0]?.toUpperCase()}
               </span>
               {m.is_me ? "Vos" : m.name}
@@ -132,12 +132,12 @@ export default function GroupPage() {
           <h2 className="text-sm font-semibold">Quién pagó qué</h2>
         </div>
         {es.length > 0 && (
-          <ul className="glass mb-2 divide-y divide-line overflow-hidden rounded-3xl">
+          <ul className="glass mb-2 divide-y divide-line overflow-hidden rounded-2xl">
             {es.map((e) => {
               const partial = e.among && e.among.length < ms.length;
               return (
                 <li key={e.id}>
-                  <button onClick={() => setExpenseSheet({ initial: e })} className="press flex w-full items-center gap-3 px-4 py-3 text-left">
+                  <button onClick={() => setExpenseSheet({ initial: e })} className="press row-hover flex w-full items-center gap-3 px-4 py-3 text-left">
                     <span className="grid size-9 shrink-0 place-items-center rounded-full bg-inset text-sm font-bold">{name(e.payer_id)[0]}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">
@@ -157,7 +157,7 @@ export default function GroupPage() {
         )}
         <button
           onClick={() => setExpenseSheet({ initial: null })}
-          className="press flex w-full items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-line py-4 font-semibold text-accent2"
+          className="press flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-line py-4 font-semibold text-accent2"
         >
           <PlusIcon width={18} height={18} /> Agregar lo que pagó alguien
         </button>
@@ -167,7 +167,7 @@ export default function GroupPage() {
       {b.transfers.length > 0 && (
         <section className="rise">
           <h2 className="mb-2 px-1 text-sm font-semibold">Para quedar a mano</h2>
-          <ul className="glass divide-y divide-line overflow-hidden rounded-3xl">
+          <ul className="glass divide-y divide-line overflow-hidden rounded-2xl">
             {b.transfers.map((t) => {
               const toMe = t.to === me?.id;
               const fromMe = t.from === me?.id;
@@ -195,7 +195,7 @@ export default function GroupPage() {
       {es.length > 0 && (
         <section className="rise">
           <h2 className="mb-2 px-1 text-sm font-semibold">Detalle por persona</h2>
-          <ul className="glass divide-y divide-line overflow-hidden rounded-3xl text-sm">
+          <ul className="glass divide-y divide-line overflow-hidden rounded-2xl text-sm">
             {ms.map((m: SharedMember) => (
               <li key={m.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-4 py-2.5">
                 <span className="truncate font-medium">{m.is_me ? "Vos" : m.name}</span>
@@ -217,7 +217,7 @@ export default function GroupPage() {
       {ps.length > 0 && (
         <section className="rise">
           <h2 className="mb-2 px-1 text-sm font-semibold">Pagos anotados</h2>
-          <ul className="glass divide-y divide-line overflow-hidden rounded-3xl text-sm">
+          <ul className="glass divide-y divide-line overflow-hidden rounded-2xl text-sm">
             {ps.map((p) => (
               <li key={p.id} className="flex items-center gap-2 px-4 py-2.5">
                 <span className="flex-1">

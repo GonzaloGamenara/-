@@ -68,7 +68,7 @@ export default function PublicGroupPage() {
         </p>
       </header>
 
-      <section className="glass rise rounded-[28px] p-5">
+      <section className="glass rise rounded-2xl p-5">
         <p className="text-xs text-muted">Total gastado</p>
         <p className="num text-3xl font-semibold">{money(b.total)}</p>
         <p className="mt-1 text-sm text-muted">
@@ -79,7 +79,7 @@ export default function PublicGroupPage() {
       <section className="rise">
         <h2 className="mb-2 px-1 text-sm font-semibold">Para quedar a mano</h2>
         {b.transfers.length ? (
-          <ul className="glass divide-y divide-line overflow-hidden rounded-3xl">
+          <ul className="glass divide-y divide-line overflow-hidden rounded-2xl">
             {b.transfers.map((t) => (
               <li key={`${t.from}-${t.to}`} className="flex items-center justify-between gap-3 px-4 py-3.5">
                 <span className="text-sm">
@@ -90,12 +90,12 @@ export default function PublicGroupPage() {
             ))}
           </ul>
         ) : (
-          <p className="glass rounded-3xl p-4 text-center text-sm">Todo saldado ✓</p>
+          <p className="glass rounded-2xl p-4 text-center text-sm">Todo saldado ✓</p>
         )}
       </section>
 
       {g.alias && b.transfers.some((t) => t.to === ownerId) && (
-        <section className="glass rise flex items-center gap-3 rounded-3xl p-4">
+        <section className="glass rise flex items-center gap-3 rounded-2xl p-4">
           <span className="min-w-0 flex-1">
             <span className="block text-xs text-muted">Alias de {owner}</span>
             <span className="block truncate text-lg font-semibold">{g.alias}</span>
@@ -111,7 +111,7 @@ export default function PublicGroupPage() {
 
       <section className="rise">
         <h2 className="mb-2 px-1 text-sm font-semibold">Quién pagó qué</h2>
-        <ul className="glass divide-y divide-line overflow-hidden rounded-3xl">
+        <ul className="glass divide-y divide-line overflow-hidden rounded-2xl">
           {g.expenses.map((e) => {
             const partial = e.among && e.among.length && e.among.length < g.members.length;
             return (
@@ -132,7 +132,7 @@ export default function PublicGroupPage() {
 
       <section className="rise">
         <h2 className="mb-2 px-1 text-sm font-semibold">Por persona</h2>
-        <ul className="glass divide-y divide-line overflow-hidden rounded-3xl text-sm">
+        <ul className="glass divide-y divide-line overflow-hidden rounded-2xl text-sm">
           {g.members.map((m) => {
             const net = b.net.get(m.id) ?? 0;
             return (

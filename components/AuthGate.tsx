@@ -44,12 +44,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
 function Logo({ size = 56 }: { size?: number }) {
   return (
     <div
-      className="grid place-items-center rounded-[28%] font-extrabold text-[#10130a] pop"
+      className="grid place-items-center rounded-[28%] bg-[#2b44c9] font-extrabold text-white pop"
       style={{
         width: size,
         height: size,
         fontSize: size * 0.5,
-        background: "linear-gradient(135deg, #c4f542, #5eead4)",
       }}
     >
       $
@@ -100,7 +99,7 @@ function Login() {
         </div>
       </div>
 
-      <form onSubmit={submit} className="rise glass grid gap-3 rounded-3xl p-5" style={{ animationDelay: "80ms" }}>
+      <form onSubmit={submit} className="rise glass grid gap-3 rounded-2xl p-5" style={{ animationDelay: "80ms" }}>
         <label className="grid gap-1.5 text-sm text-muted">
           Email
           <input

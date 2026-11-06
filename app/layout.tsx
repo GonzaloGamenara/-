@@ -9,14 +9,14 @@ export const metadata: Metadata = {
   description: "Anotá tus gastos e ingresos en segundos y mirá a dónde se va tu plata.",
   applicationName: "Gastos",
   appleWebApp: { capable: true, title: "Gastos", statusBarStyle: "black-translucent" },
-  icons: { apple: "/icons/apple-touch.png?v=2", icon: "/icons/192.png?v=2" },
+  icons: { apple: "/icons/apple-touch.png?v=3", icon: "/icons/192.png?v=3" },
   formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#07070d" },
-    { media: "(prefers-color-scheme: light)", color: "#f3f2f8" },
+    { media: "(prefers-color-scheme: dark)", color: "#111317" },
+    { media: "(prefers-color-scheme: light)", color: "#f4f4f1" },
   ],
   width: "device-width",
   initialScale: 1,

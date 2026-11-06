@@ -7,7 +7,7 @@ import { Sheet } from "@/components/Sheet";
 import { PageHeader } from "@/components/PageHeader";
 import { MigrationNotice } from "@/components/MigrationNotice";
 import Link from "next/link";
-import { ChevronRight, PlusIcon, SplitIcon, TrashIcon } from "@/components/Icons";
+import { ApiIcon, BankIcon, ChartIcon, ChevronRight, InboxIcon, PlusIcon, SplitIcon, TrashIcon } from "@/components/Icons";
 import { AliasField } from "@/components/AliasField";
 import { CategoryForm, CATEGORY_COLORS as PALETTE } from "@/components/CategoryForm";
 import { ExportPanel } from "@/components/ExportPanel";
@@ -40,28 +40,28 @@ export default function Ajustes() {
       <MigrationNotice />
 
       <Group title="Tu plata">
-        <Row href="/patrimonio" icon="🏦" title="Patrimonio" sub="Cuentas e inversiones, con precios al día" />
+        <Row href="/patrimonio" icon={<BankIcon width={20} height={20} />} title="Patrimonio" sub="Cuentas e inversiones, con precios al día" />
       </Group>
 
       <Group title="Herramientas">
         <Row href="/dividir" icon={<SplitIcon width={20} height={20} />} title="Dividir cuentas" sub="Quién pagó qué y quién le debe a quién" />
-        <Row href="/cierre" icon="📊" title="Cierre de mes" sub="Cómo te fue: ahorro, techos y tus gastos más grandes" />
-        <Row href="/importar" icon="📥" title="Importar movimientos" sub="Desde un archivo, sin duplicar lo que ya cargaste" />
-        <Row href="/ajustes/agente" icon="🤖" title="Agente de IA" sub="Un token para que tu agente consulte tus finanzas" />
+        <Row href="/cierre" icon={<ChartIcon width={20} height={20} />} title="Cierre de mes" sub="Cómo te fue: ahorro, techos y tus gastos más grandes" />
+        <Row href="/importar" icon={<InboxIcon width={20} height={20} />} title="Importar movimientos" sub="Desde un archivo, sin duplicar lo que ya cargaste" />
+        <Row href="/ajustes/agente" icon={<ApiIcon width={20} height={20} />} title="Agente de IA" sub="Un token para que tu agente consulte tus finanzas" />
       </Group>
 
       <h2 className="-mb-3 px-1 text-xs font-semibold uppercase tracking-wide text-muted">Tu cuenta</h2>
-      <section className="glass rise rounded-3xl p-4">
+      <section className="glass rise rounded-2xl p-4">
         <AliasField />
       </section>
 
-      <section className="glass rise overflow-hidden rounded-3xl">
+      <section className="glass rise overflow-hidden rounded-2xl">
         {(["expense", "income"] as const).map((kind) => {
           const list = categories.filter((c) => c.kind === kind);
           return (
             <details key={kind} className="group border-line [&:not(:first-child)]:border-t">
               <summary className="press flex cursor-pointer list-none items-center gap-3 px-4 py-3.5 [&::-webkit-details-marker]:hidden">
-                <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">{kind === "expense" ? "🏷️" : "💰"}</span>
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-inset text-lg">{kind === "expense" ? "🏷️" : "💰"}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">Categorías de {kind === "expense" ? "gastos" : "ingresos"}</span>
                   <span className="block truncate text-xs text-muted">
@@ -95,14 +95,14 @@ export default function Ajustes() {
 
       <ExportPanel />
 
-      <section className="glass rise grid divide-y divide-line overflow-hidden rounded-3xl">
+      <section className="glass rise grid divide-y divide-line overflow-hidden rounded-2xl">
         <button onClick={signOut} className="press px-5 py-4 text-left font-medium text-exp">
           Cerrar sesión
         </button>
       </section>
 
       {!standalone && (
-        <section className="glass rise rounded-3xl p-5">
+        <section className="glass rise rounded-2xl p-5">
           <h2 className="font-medium">Instalala como app</h2>
           {installEvt ? (
             <button
@@ -136,15 +136,15 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   return (
     <section className="grid gap-2">
       <h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">{title}</h2>
-      <div className="glass rise grid divide-y divide-line overflow-hidden rounded-3xl">{children}</div>
+      <div className="glass rise grid divide-y divide-line overflow-hidden rounded-2xl">{children}</div>
     </section>
   );
 }
 
 function Row({ href, icon, title, sub }: { href: string; icon: React.ReactNode; title: string; sub: string }) {
   return (
-    <Link href={href} className="press flex items-center gap-3 px-4 py-3.5">
-      <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">{icon}</span>
+    <Link href={href} className="press row-hover flex items-center gap-3 px-4 py-3.5">
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-inset text-muted">{icon}</span>
       <span className="min-w-0 flex-1">
         <span className="block font-medium">{title}</span>
         <span className="block truncate text-xs text-muted">{sub}</span>

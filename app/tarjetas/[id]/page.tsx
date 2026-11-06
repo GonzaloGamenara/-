@@ -134,27 +134,27 @@ export default function CardDetail() {
         {rows === null ? (
           <div className="grid gap-2">{[0, 1, 2].map((i) => <div key={i} className="skeleton h-14" />)}</div>
         ) : lines.length === 0 ? (
-          <p className="glass rounded-3xl p-5 text-center text-sm text-muted">Nada en este resumen todavía.</p>
+          <p className="glass rounded-2xl p-5 text-center text-sm text-muted">Nada en este resumen todavía.</p>
         ) : (
-          <ul className="glass divide-y divide-line overflow-hidden rounded-3xl">
+          <ul className="glass divide-y divide-line overflow-hidden rounded-2xl">
             {lines.map((l) => {
               const c = cat(l.categoryId);
               return (
                 <li key={l.key}>
                   <button onClick={l.onOpen} className={`press flex w-full items-center gap-3 px-4 py-3 text-left ${l.estimated ? "opacity-60" : ""}`}>
-                    <span className="grid size-10 shrink-0 place-items-center rounded-2xl text-lg" style={{ background: `color-mix(in srgb, ${c?.color ?? "#64748b"} 22%, transparent)` }}>
+                    <span className="grid size-10 shrink-0 place-items-center rounded-xl text-lg" style={{ background: `color-mix(in srgb, ${c?.color ?? "#64748b"} 22%, transparent)` }}>
                       {c?.emoji ?? "💳"}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">{l.name}</span>
                       <span className="flex items-center gap-1.5 text-xs text-muted">
                         {c?.name ?? "Sin categoría"}
-                        <span className="shrink-0 whitespace-nowrap rounded-full bg-inset px-1.5 py-px text-[10px] font-medium text-fg/80">{l.badge}</span>
+                        <span className="shrink-0 whitespace-nowrap rounded-full bg-inset px-1.5 py-px text-xs font-medium text-fg/80">{l.badge}</span>
                       </span>
                     </span>
                     <span className="text-right">
                       <span className="num block font-semibold">{money(l.amount)}</span>
-                      {l.myPart < l.amount - 0.005 && <span className="num text-[11px] text-muted">tu parte {money(l.myPart)}</span>}
+                      {l.myPart < l.amount - 0.005 && <span className="num text-xs text-muted">tu parte {money(l.myPart)}</span>}
                     </span>
                   </button>
                 </li>
@@ -168,7 +168,7 @@ export default function CardDetail() {
       {plans.length > 0 && (
         <section className="rise">
           <h2 className="mb-1 px-1 text-sm font-semibold">Planes en cuotas</h2>
-          <ul className="glass divide-y divide-line overflow-hidden rounded-3xl">
+          <ul className="glass divide-y divide-line overflow-hidden rounded-2xl">
             {plans.map(({ p, left }) => {
               const done = p.installments - left.count;
               return (
@@ -199,15 +199,15 @@ export default function CardDetail() {
       {subs.length > 0 && (
         <section className="rise">
           <h2 className="mb-1 px-1 text-sm font-semibold">Suscripciones</h2>
-          <ul className="glass divide-y divide-line overflow-hidden rounded-3xl">
+          <ul className="glass divide-y divide-line overflow-hidden rounded-2xl">
             {subs.map((r) => {
               const c = cat(r.category_id);
               return (
                 <li key={r.id} className={r.active ? "" : "opacity-50"}>
-                  <button onClick={() => setEditSub(r)} className="press flex w-full items-center gap-3 px-4 py-3 text-left">
+                  <button onClick={() => setEditSub(r)} className="press row-hover flex w-full items-center gap-3 px-4 py-3 text-left">
                     <span className="text-lg">{c?.emoji ?? "🔁"}</span>
                     <span className="flex-1 truncate font-medium">{r.name}</span>
-                    {!r.active && <span className="rounded-full bg-inset px-2 py-0.5 text-[11px]">Pausada</span>}
+                    {!r.active && <span className="rounded-full bg-inset px-2 py-0.5 text-xs">Pausada</span>}
                     <span className="num font-semibold">{money(r.amount)}</span>
                   </button>
                 </li>

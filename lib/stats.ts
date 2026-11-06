@@ -97,10 +97,10 @@ export function monthStats(
   const totals = { daily: 0, fixed: 0, card: 0, shared: 0 };
   for (const t of expenses) totals[groupOf(t)] += mine(t);
   const breakdown: Breakdown[] = [
-    { key: "daily", label: "Día a día", hint: "lo que cargás a mano", color: "#fb7185", total: totals.daily },
-    { key: "fixed", label: "Fijos", hint: "alquiler, servicios…", color: "#a78bfa", total: totals.fixed },
-    { key: "card", label: "Tarjeta", hint: "resúmenes, cuotas y suscripciones", color: "#60a5fa", total: totals.card },
-    { key: "shared", label: "Compartidos", hint: "tu parte de cuentas divididas", color: "#2dd4bf", total: totals.shared },
+    { key: "daily", label: "Día a día", hint: "lo que cargás a mano", color: "var(--chart-1)", total: totals.daily },
+    { key: "fixed", label: "Fijos", hint: "alquiler, servicios…", color: "var(--chart-3)", total: totals.fixed },
+    { key: "card", label: "Tarjeta", hint: "resúmenes, cuotas y suscripciones", color: "var(--chart-2)", total: totals.card },
+    { key: "shared", label: "Compartidos", hint: "tu parte de cuentas divididas", color: "var(--chart-4)", total: totals.shared },
   ];
 
   // Programado para lo que queda del mes

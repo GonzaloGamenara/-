@@ -1,47 +1,55 @@
 @import "tailwindcss";
 
-/* Design tokens — oscuro por defecto (fondo "aurora"), claro automático según el sistema */
+/* Design tokens — ver DESIGN.md ("libreta en birome").
+   Claro: papel neutro, tinta grafito, azul birome para la acción, rojo de debe y verde de haber.
+   Oscuro: grafito (no negro puro) con la misma lógica. Se elige solo según el sistema. */
 :root {
-  --bg: #07070d;
-  --surface: rgb(255 255 255 / 0.055);
-  --surface-2: rgb(255 255 255 / 0.09);
-  --inset: rgb(255 255 255 / 0.07);
-  --line: rgb(255 255 255 / 0.09);
-  --fg: #f5f5fa;
-  --muted: #9b9bb2;
-  --accent: #c4f542;
-  --accent-ink: #10130a;
-  --accent-2: #5eead4;
-  --exp: #ff6b81;
-  --inc: #4ade80;
-  --on-exp: #ffffff;
-  --on-inc: #052e12;
-  --glow-a: rgb(124 92 255 / 0.28);
-  --glow-b: rgb(45 212 191 / 0.18);
-  --glow-c: rgb(196 245 66 / 0.10);
-  --shadow: 0 10px 40px -12px rgb(0 0 0 / 0.6);
+  --bg: #111317;
+  --surface: #171a1f;
+  --surface-2: #1d2127;
+  --inset: #22262d;
+  --line: #2b3038;
+  --fg: #eceef1;
+  --muted: #9aa1ac;
+  --accent: #7d92ff;
+  --accent-ink: #0c1024;
+  --accent-2: #9eaeff;
+  --exp: #ff7686;
+  --inc: #52c78e;
+  --on-exp: #1d0508;
+  --on-inc: #04170d;
+  --warn: #e2a64c;
+  --chart-1: #7d92ff;
+  --chart-2: #e2a64c;
+  --chart-3: #8a919d;
+  --chart-4: #4fb9aa;
+  --shadow: none;
+  --shadow-raised: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 12px 32px -20px rgb(0 0 0 / 0.7);
   color-scheme: dark;
 }
 @media (prefers-color-scheme: light) {
   :root {
-    --bg: #f3f2f8;
-    --surface: rgb(255 255 255 / 0.75);
-    --surface-2: rgb(255 255 255 / 0.95);
-    --inset: rgb(30 30 60 / 0.07);
-    --line: rgb(20 20 40 / 0.12);
-    --fg: #14141f;
-    --muted: #6b6b83;
-    --accent: #1f1f2e;
+    --bg: #f4f4f1;
+    --surface: #ffffff;
+    --surface-2: #fafaf8;
+    --inset: #ededea;
+    --line: #e0e0db;
+    --fg: #16181d;
+    --muted: #5c626d;
+    --accent: #2b44c9;
     --accent-ink: #ffffff;
-    --accent-2: #0d9488;
-    --exp: #e11d48;
-    --inc: #16a34a;
+    --accent-2: #2b44c9;
+    --exp: #c0283a;
+    --inc: #1c7a4b;
     --on-exp: #ffffff;
     --on-inc: #ffffff;
-    --glow-a: rgb(124 92 255 / 0.20);
-    --glow-b: rgb(45 212 191 / 0.20);
-    --glow-c: rgb(250 204 21 / 0.16);
-    --shadow: 0 10px 40px -14px rgb(60 60 110 / 0.25);
+    --warn: #a8640f;
+    --chart-1: #2b44c9;
+    --chart-2: #c98a1c;
+    --chart-3: #8a909b;
+    --chart-4: #2f9488;
+    --shadow: none;
+    --shadow-raised: 0 1px 2px rgb(22 24 29 / 0.05), 0 10px 28px -18px rgb(22 24 29 / 0.28);
     color-scheme: light;
   }
 }
@@ -61,6 +69,7 @@
   --color-inc: var(--inc);
   --color-on-exp: var(--on-exp);
   --color-on-inc: var(--on-inc);
+  --color-warn: var(--warn);
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
@@ -79,27 +88,15 @@ body {
   -webkit-font-smoothing: antialiased;
   font-feature-settings: "ss01", "cv11";
 }
-/* Aurora de fondo */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background:
-    radial-gradient(60% 45% at 15% 0%, var(--glow-a), transparent 70%),
-    radial-gradient(50% 40% at 100% 20%, var(--glow-b), transparent 70%),
-    radial-gradient(60% 40% at 50% 100%, var(--glow-c), transparent 70%);
-  pointer-events: none;
-}
-
 .num { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+/* Superficie: plana, con línea fina (como una hoja de libreta). Sin vidrio. */
 .glass {
   background: var(--surface);
   border: 1px solid var(--line);
-  backdrop-filter: blur(22px) saturate(140%);
-  -webkit-backdrop-filter: blur(22px) saturate(140%);
   box-shadow: var(--shadow);
 }
+/* Solo lo más importante de cada pantalla se levanta un poco */
+.elevated { box-shadow: var(--shadow-raised); }
 .hide-scroll { scrollbar-width: none; }
 .hide-scroll::-webkit-scrollbar { display: none; }
 
@@ -109,7 +106,8 @@ body::before {
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pop { 0% { transform: scale(.9); opacity: 0 } 100% { transform: none; opacity: 1 } }
 @keyframes shimmer { 0% { background-position: -200% 0 } 100% { background-position: 200% 0 } }
-.rise { animation: rise .5s cubic-bezier(.2,.8,.2,1) both; }
+/* El contenido aparece al instante: la animación queda para hojas, avisos y el fueguito */
+.rise { animation: none; }
 .sheet-in { animation: sheet-in .38s cubic-bezier(.2,.9,.25,1) both; }
 .fade-in { animation: fade .25s ease both; }
 .pop { animation: pop .3s cubic-bezier(.2,.9,.3,1.2) both; }
@@ -123,7 +121,14 @@ body::before {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 .press { transition: transform .15s ease, background-color .15s ease; }
-.press:active { transform: scale(.96); }
+.press:active { transform: scale(.97); }
+
+/* Todo lo que se toca muestra la manito; las filas se marcan al pasar el mouse */
+button:not(:disabled), [role="button"], summary, label:has(> input[type="checkbox"]) { cursor: pointer; }
+@media (hover: hover) and (pointer: fine) {
+  .row-hover { transition: background-color .12s ease; }
+  .row-hover:hover { background: var(--inset); }
+}
 
 input, select, textarea { font-size: 16px; } /* evita zoom en iOS */
 

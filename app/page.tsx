@@ -68,12 +68,7 @@ export default function Home() {
           <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
             <div className="order-1 min-w-0 empty:hidden lg:order-none">
             {/* Hero: lo gastado, desglosado, y lo que viene */}
-            <section className="glass rise relative overflow-hidden rounded-[28px] p-5" style={{ animationDelay: "40ms" }}>
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full opacity-40 blur-3xl"
-                style={{ background: "radial-gradient(closest-side, var(--exp), transparent)" }}
-              />
+            <section className="glass elevated rise relative overflow-hidden rounded-2xl p-5" style={{ animationDelay: "40ms" }}>
               <p className="relative text-sm text-muted">
                 {s.isCurrent ? `Gastaste en ${monthName}, hasta hoy` : `Gastaste en ${monthName}`}
               </p>
@@ -112,7 +107,7 @@ export default function Home() {
 
               <div className="relative mt-5">
                 <DayBars values={s.perDay} planned={s.perDayPlanned} today={s.isCurrent ? s.elapsed : undefined} />
-                <div className="relative mt-2 flex justify-between text-[10px] text-muted">
+                <div className="relative mt-2 flex justify-between text-xs text-muted">
                   <span>1</span>
                   {s.isCurrent && s.elapsed > 2 && s.elapsed < s.dim - 1 && (
                     <span
@@ -150,7 +145,7 @@ export default function Home() {
             <div className="order-9 min-w-0 empty:hidden lg:order-none">
             {/* Por categoría */}
             {s.expenseCats.length > 0 && (
-              <section className="glass rise rounded-[28px] p-5" style={{ animationDelay: "260ms" }}>
+              <section className="glass rise rounded-2xl p-5" style={{ animationDelay: "260ms" }}>
                 <h2 className="mb-4 text-sm font-semibold">En qué gastaste</h2>
                 <div className="flex items-center gap-5">
                   <Donut
@@ -159,7 +154,7 @@ export default function Home() {
                     center={
                       <div>
                         <div className="num text-lg font-semibold">{compact(s.spent)}</div>
-                        <div className="text-[11px] text-muted">{s.expenseCats.length} categ.</div>
+                        <div className="text-xs text-muted">{s.expenseCats.length} categ.</div>
                       </div>
                     }
                   />
@@ -177,7 +172,7 @@ export default function Home() {
                 <ul className="mt-5 grid gap-0.5">
                   {(allCats ? s.expenseCats : s.expenseCats.slice(0, 5)).map((c) => (
                     <li key={c.id ?? "none"}>
-                      <Link href={c.id ? `/movimientos?cat=${c.id}` : "/movimientos"} className="press block rounded-2xl px-2 py-2.5 hover:bg-surface">
+                      <Link href={c.id ? `/movimientos?cat=${c.id}` : "/movimientos"} className="press block rounded-2xl px-2 py-2.5 row-hover">
                         <div className="flex items-center gap-3">
                           <span className="grid size-9 shrink-0 place-items-center rounded-xl text-lg" style={{ background: `color-mix(in srgb, ${c.color} 22%, transparent)` }}>
                             {c.emoji}
@@ -209,7 +204,7 @@ export default function Home() {
             <div className="order-10 min-w-0 empty:hidden lg:order-none">
             {/* De dónde viene */}
             {s.incomeCats.length > 0 && (
-              <section className="glass rise rounded-[28px] p-5" style={{ animationDelay: "280ms" }}>
+              <section className="glass rise rounded-2xl p-5" style={{ animationDelay: "280ms" }}>
                 <h2 className="mb-3 text-sm font-semibold">De dónde vino la plata</h2>
                 <ul className="grid gap-2.5">
                   {s.incomeCats.map((c) => (
@@ -282,7 +277,7 @@ export default function Home() {
             </div>
             <div className="order-6 min-w-0 empty:hidden lg:order-none">
             {Math.abs(owed) >= 1 && (
-              <Link href="/dividir" className="glass press rise flex items-center justify-between rounded-3xl px-4 py-3.5" style={{ animationDelay: "210ms" }}>
+              <Link href="/dividir" className="glass press rise flex items-center justify-between rounded-2xl px-4 py-3.5" style={{ animationDelay: "210ms" }}>
                 <span className="text-sm">
                   <span className="text-muted">{owed > 0 ? "Te deben" : "Debés"}</span>{" "}
                   <b className={`num ${owed > 0 ? "text-inc" : "text-exp"}`}>{money(Math.abs(owed))}</b>
@@ -297,7 +292,7 @@ export default function Home() {
             <div className="order-8 min-w-0 empty:hidden lg:order-none">
             {/* Lo que viene este mes */}
             {s.scheduled.length > 0 && (
-              <section className="glass rise rounded-[28px] p-4" style={{ animationDelay: "220ms" }}>
+              <section className="glass rise rounded-2xl p-4" style={{ animationDelay: "220ms" }}>
                 <div className="mb-2 flex items-center justify-between">
                   <h2 className="text-sm font-semibold">Lo que viene este mes</h2>
                   <Link href="/fijos" className="text-xs text-muted">Ver fijos</Link>
@@ -342,17 +337,17 @@ export default function Home() {
 
 function Stat({ label, value, hint, tone = "", delay = 0 }: { label: string; value: string; hint?: string; tone?: string; delay?: number }) {
   return (
-    <div className="glass rise min-w-0 rounded-3xl p-4" style={{ animationDelay: `${delay}ms` }}>
+    <div className="glass rise min-w-0 rounded-2xl p-4" style={{ animationDelay: `${delay}ms` }}>
       <p className="text-xs text-muted">{label}</p>
       <p className={`num mt-1 truncate text-[clamp(1.05rem,5vw,1.3rem)] font-semibold ${tone}`}>{value}</p>
-      {hint && <p className="mt-1 text-[11px] leading-snug text-muted">{hint}</p>}
+      {hint && <p className="mt-1 text-xs leading-snug text-muted">{hint}</p>}
     </div>
   );
 }
 
 function Empty({ onAdd, month }: { onAdd: () => void; month: string }) {
   return (
-    <section className="glass rise grid place-items-center gap-3 rounded-[28px] px-6 py-14 text-center">
+    <section className="glass rise grid place-items-center gap-3 rounded-2xl px-6 py-14 text-center">
       <div className="text-5xl">🌱</div>
       <h2 className="text-lg font-semibold">Nada en {monthLabel(month)} todavía</h2>
       <p className="max-w-64 text-sm text-muted">Tocá el botón + y anotá tu primer movimiento. Toma 3 segundos.</p>

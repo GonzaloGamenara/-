@@ -121,12 +121,7 @@ function CierreMes() {
         <div className="grid gap-4 lg:grid-cols-2 lg:items-start lg:gap-6">
           <div className="grid min-w-0 gap-4">
             {/* Lo principal: cuánto ahorraste */}
-            <section className="glass rise relative overflow-hidden rounded-[28px] p-5">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full opacity-40 blur-3xl"
-                style={{ background: `radial-gradient(closest-side, ${cierre.saved >= 0 ? "var(--inc)" : "var(--exp)"}, transparent)` }}
-              />
+            <section className="glass elevated rise relative overflow-hidden rounded-2xl p-5">
               <p className="relative text-sm text-muted">{cierre.saved >= 0 ? "Ahorraste" : "Gastaste más de lo que entró"}</p>
               <p className={`num relative text-[clamp(2.25rem,11vw,3rem)] font-semibold leading-none ${cierre.saved < 0 ? "text-exp" : ""}`}>
                 {moneyRound(Math.abs(cierre.saved))}
@@ -139,17 +134,17 @@ function CierreMes() {
               <div className="relative mt-4 grid grid-cols-2 gap-2 text-center">
                 <div className="rounded-2xl bg-inset py-2.5">
                   <div className="num text-lg font-semibold text-inc">{moneyRound(cierre.earned)}</div>
-                  <div className="text-[11px] text-muted">entró</div>
+                  <div className="text-xs text-muted">entró</div>
                 </div>
                 <div className="rounded-2xl bg-inset py-2.5">
                   <div className="num text-lg font-semibold">{moneyRound(cierre.spent)}</div>
-                  <div className="text-[11px] text-muted">gastaste</div>
+                  <div className="text-xs text-muted">gastaste</div>
                 </div>
               </div>
             </section>
 
             {/* Contra el mes anterior y la inflación */}
-            <section className="glass rise grid gap-2 rounded-3xl p-4 text-sm">
+            <section className="glass rise grid gap-2 rounded-2xl p-4 text-sm">
               <h2 className="font-semibold">Comparado</h2>
               {cierre.prev && cierre.spentDelta !== null ? (
                 <>
@@ -184,7 +179,7 @@ function CierreMes() {
 
             {/* Techos */}
             {techos.length > 0 && (
-              <section className="glass rise grid gap-3 rounded-3xl p-4">
+              <section className="glass rise grid gap-3 rounded-2xl p-4">
                 <div>
                   <h2 className="font-semibold">
                     Techos: cumpliste {cumplidos} de {techos.length}
@@ -207,7 +202,7 @@ function CierreMes() {
           <div className="grid min-w-0 gap-4">
             {/* Los gastos más grandes */}
             {cierre.top.length > 0 && (
-              <section className="glass rise rounded-3xl p-4">
+              <section className="glass rise rounded-2xl p-4">
                 <h2 className="font-semibold">Tus 5 gastos más grandes</h2>
                 <p className="mb-2 text-xs text-muted">Sin contar fijos. Con tarjeta, en el mes en que compraste (en cuotas, la cuota del mes).</p>
                 <ol className="grid">
@@ -215,7 +210,7 @@ function CierreMes() {
                     <li key={i} className="flex items-center gap-3 py-2">
                       <span className="num w-4 shrink-0 text-center text-sm font-semibold text-muted">{i + 1}</span>
                       <span
-                        className="grid size-9 shrink-0 place-items-center rounded-2xl text-base"
+                        className="grid size-9 shrink-0 place-items-center rounded-xl text-base"
                         style={{ background: `color-mix(in srgb, ${cat(t.categoryId)?.color ?? "#64748b"} 22%, transparent)` }}
                       >
                         {cat(t.categoryId)?.emoji ?? "🏷️"}
@@ -235,7 +230,7 @@ function CierreMes() {
 
             {/* Categorías */}
             {cierre.categories.length > 0 && (
-              <section className="glass rise rounded-3xl p-4">
+              <section className="glass rise rounded-2xl p-4">
                 <h2 className="mb-2 font-semibold">En qué se fue</h2>
                 <ul className="grid gap-2.5">
                   {cierre.categories.slice(0, 8).map((c) => {
@@ -247,7 +242,7 @@ function CierreMes() {
                             {c.emoji} {c.name}
                           </span>
                           {c.prev !== null && (
-                            <span className={`num shrink-0 text-[11px] ${delta === null ? "text-muted" : delta > 0 ? "text-exp" : "text-inc"}`}>
+                            <span className={`num shrink-0 text-xs ${delta === null ? "text-muted" : delta > 0 ? "text-exp" : "text-inc"}`}>
                               {delta === null ? "nuevo" : pct(delta)}
                             </span>
                           )}

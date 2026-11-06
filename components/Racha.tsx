@@ -49,7 +49,7 @@ export function RachaBar() {
         tabIndex={0}
         onClick={() => setOpen(true)}
         onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), setOpen(true))}
-        className="glass press rise flex cursor-pointer items-center gap-3 rounded-3xl py-2 pl-3 pr-2"
+        className="glass press rise flex cursor-pointer items-center gap-3 rounded-2xl py-2 pl-3 pr-2"
         aria-label={`Racha: ${dias(current)} seguidos. ${sub}`}
       >
         <Fueguito state={state} size={30} compact />

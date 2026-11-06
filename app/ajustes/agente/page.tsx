@@ -89,7 +89,7 @@ export default function Agente() {
         </div>
       </header>
 
-      <section className="glass rise grid gap-2 rounded-3xl p-4 text-sm">
+      <section className="glass rise grid gap-2 rounded-2xl p-4 text-sm">
         <p>
           Creá un <b>token</b> y dáselo a tu agente (por ejemplo, Claude). Con él puede consultar por <b>GET</b> lo mismo que el export: resumen por mes,
           categorías, fijos, tarjetas, techos, patrimonio y movimientos.
@@ -98,7 +98,7 @@ export default function Agente() {
       </section>
 
       {missing ? (
-        <div className="glass rounded-3xl border-l-4 border-l-exp p-4 text-sm">
+        <div className="glass rounded-2xl border-l-4 border-l-exp p-4 text-sm">
           <b>Falta un paso en Supabase.</b>
           <p className="mt-1 text-muted">
             Corré <code className="text-fg">supabase/migrations/010_agente.sql</code> en Supabase → SQL Editor → Run y recargá la app.
@@ -108,12 +108,12 @@ export default function Agente() {
         <>
           <section className="grid gap-2">
             <h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">Tokens activos</h2>
-            <ul className="glass rise grid divide-y divide-line overflow-hidden rounded-3xl">
+            <ul className="glass rise grid divide-y divide-line overflow-hidden rounded-2xl">
               {tokens === null && <li className="px-4 py-3.5 text-sm text-muted">Cargando…</li>}
               {tokens !== null && !active.length && <li className="px-4 py-3.5 text-sm text-muted">Todavía no creaste ninguno.</li>}
               {active.map((t) => (
                 <li key={t.id} className="flex items-center gap-3 px-4 py-3">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">🤖</span>
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-inset text-lg">🤖</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{t.label}</span>
                     <span className="block truncate text-xs text-muted">
@@ -132,7 +132,7 @@ export default function Agente() {
             Crear token
           </button>
 
-          <section className="glass rise grid gap-2 rounded-3xl p-4 text-sm">
+          <section className="glass rise grid gap-2 rounded-2xl p-4 text-sm">
             <h2 className="font-semibold">Cómo lo usa tu agente</h2>
             <code className="block overflow-x-auto whitespace-pre rounded-xl bg-inset p-3 text-xs">
               {`GET ${origin}/api/agente\nAuthorization: Bearer <tu token>`}

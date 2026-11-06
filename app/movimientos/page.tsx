@@ -10,6 +10,7 @@ import { MonthSwitcher } from "@/components/MonthSwitcher";
 import { PageHeader } from "@/components/PageHeader";
 import { TxRow } from "@/components/TxRow";
 import { SearchIcon, XIcon } from "@/components/Icons";
+import { plainKey } from "@/lib/keys";
 
 export default function Page() {
   return (
@@ -43,6 +44,18 @@ function Movimientos() {
 
   // Si llegás con un filtro (desde Inicio o Techos), el chip activo queda a la vista
   const chipsRef = useRef<HTMLDivElement>(null);
+  // Escritorio: "/" va al buscador
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "/" && plainKey(e)) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
   const activeChip = techoFilter ?? catFilter;
   const budgetsReady = budgets.length > 0;
   useEffect(() => {
@@ -84,12 +97,19 @@ function Movimientos() {
       <label className="rise flex items-center gap-2 rounded-2xl border border-line bg-surface px-3.5 py-2.5 focus-within:border-accent2" style={{ animationDelay: "40ms" }}>
         <SearchIcon width={18} height={18} className="shrink-0 text-muted" />
         <input
+          ref={searchRef}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Buscar por nota o categoría"
+          onKeyDown={(e) => e.key === "Escape" && (setQ(""), e.currentTarget.blur())}
           aria-label="Buscar"
           className="w-full bg-transparent outline-none placeholder:text-muted"
         />
+        {!q && (
+          <kbd className="hidden h-5 min-w-5 place-items-center rounded-md border border-line px-1 font-sans text-xs text-muted lg:grid" aria-hidden>
+            /
+          </kbd>
+        )}
         {q && (
           <button onClick={() => setQ("")} aria-label="Limpiar búsqueda" className="text-muted">
             <XIcon width={16} height={16} />
@@ -146,7 +166,7 @@ function Movimientos() {
       {loading && txs.length === 0 ? (
         <div className="grid gap-2">{[0, 1, 2, 3, 4].map((i) => <div key={i} className="skeleton h-16" />)}</div>
       ) : groups.length === 0 ? (
-        <div className="glass grid place-items-center gap-2 rounded-[28px] px-6 py-14 text-center">
+        <div className="glass grid place-items-center gap-2 rounded-2xl px-6 py-14 text-center">
           <div className="text-4xl">{hasFilters ? "🔍" : "🗒️"}</div>
           <p className="font-medium">{hasFilters ? "Nada con estos filtros" : "Todavía no hay movimientos este mes"}</p>
           {hasFilters ? (

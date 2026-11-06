@@ -4,10 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
-import { HomeIcon, ListIcon, PlusIcon, PlanIcon, UserIcon, CloudOffIcon, SplitIcon } from "./Icons";
+import { HomeIcon, ListIcon, PlusIcon, PlanIcon, UserIcon, CloudOffIcon, SplitIcon, BankIcon, ChartIcon } from "./Icons";
 import { QuickAdd } from "./QuickAdd";
 import { PurchaseSheet } from "./PurchaseSheet";
 import { useIosViewportFix } from "./useIosViewportFix";
+import { plainKey } from "@/lib/keys";
 import { PrelaunchBanner, PrelaunchCard, usePrelaunch } from "./LaunchGate";
 
 const NAV = [
@@ -36,8 +37,8 @@ const SIDE: { href: string; label: string; icon: ReactNode; also?: string[]; sub
       { href: "/techos", label: "Techos" },
     ],
   },
-  { href: "/patrimonio", label: "Patrimonio", icon: <span className="text-[15px] leading-none">🏦</span>, prelaunch: true },
-  { href: "/cierre", label: "Cierre de mes", icon: <span className="text-[15px] leading-none">📊</span> },
+  { href: "/patrimonio", label: "Patrimonio", icon: <BankIcon width={18} height={18} />, prelaunch: true },
+  { href: "/cierre", label: "Cierre de mes", icon: <ChartIcon width={18} height={18} /> },
   { href: "/dividir", label: "Dividir cuentas", icon: <SplitIcon width={18} height={18} />, prelaunch: true },
   { href: "/ajustes", label: "Perfil", icon: <UserIcon width={18} height={18} />, also: ["/importar"], prelaunch: true },
 ];
@@ -68,10 +69,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const sheetOpen = sheet.open || purchaseSheet.open;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || sheetOpen || prelaunch) return;
-      const el = e.target as HTMLElement | null;
-      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
-      if (document.querySelector('[role="dialog"]')) return;
+      if (sheetOpen || prelaunch || !plainKey(e)) return;
       const k = e.key.toLowerCase();
       if (k === "n" || k === "i") {
         e.preventDefault();
@@ -115,7 +113,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 <Link
                   href={item.href}
                   aria-current={on && !item.sub ? "page" : undefined}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 font-medium transition-colors ${on ? "bg-inset text-fg" : "text-muted hover:bg-surface hover:text-fg"}`}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 font-medium transition-colors ${on ? "bg-inset text-fg" : "text-muted row-hover hover:text-fg"}`}
                 >
                   <span className="grid w-5 place-items-center">{item.icon}</span>
                   {item.label}
@@ -149,9 +147,15 @@ export function Shell({ children }: { children: ReactNode }) {
             </p>
           )}
           {!prelaunch && (
-            <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-              <Kbd>N</Kbd> gasto <span className="text-line">·</span> <Kbd>I</Kbd> ingreso
-            </p>
+            <ul className="grid gap-1.5" aria-label="Atajos de teclado">
+              <li className="flex items-center gap-1.5">
+                <Kbd>N</Kbd> gasto <span className="text-line">·</span> <Kbd>I</Kbd> ingreso
+              </li>
+              <li className="flex items-center gap-1.5">
+                <Kbd>←</Kbd>
+                <Kbd>→</Kbd> mes <span className="text-line">·</span> <Kbd>/</Kbd> buscar
+              </li>
+            </ul>
           )}
         </div>
       </aside>
@@ -179,8 +183,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 <button
                   onClick={() => openSheet()}
                   aria-label="Anotar movimiento"
-                  className="press -mt-6 grid size-[3.75rem] place-items-center rounded-full text-accent-ink shadow-[0_8px_24px_-6px_rgb(20_184_166/0.55)] ring-4 ring-bg"
-                  style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}
+                  className="press -mt-6 grid size-[3.75rem] place-items-center rounded-full bg-accent text-accent-ink shadow-[0_6px_18px_-6px_rgb(0_0_0/0.35)] ring-4 ring-bg"
                 >
                   <PlusIcon width={28} height={28} />
                 </button>
@@ -190,7 +193,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 <Link
                   href={item.href}
                   aria-current={isActive(path, item) ? "page" : undefined}
-                  className={`press flex flex-1 flex-col items-center justify-center gap-1 text-[10.5px] font-medium tracking-tight transition-colors ${
+                  className={`press flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium tracking-tight transition-colors ${
                     isActive(path, item) ? "text-fg" : "text-muted"
                   }`}
                 >

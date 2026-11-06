@@ -31,7 +31,7 @@ export function ExportPanel() {
   };
 
   return (
-    <section className="glass rise grid gap-4 rounded-3xl p-4">
+    <section className="glass rise grid gap-4 rounded-2xl p-4">
       <div>
         <h2 className="font-semibold">Exportar tus datos</h2>
         <p className="text-xs text-muted">

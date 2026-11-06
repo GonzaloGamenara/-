@@ -11,7 +11,7 @@ export function SubsAlert({ delay = 0 }: { delay?: number }) {
   if (!alerts.length) return null;
   const shown = alerts.slice(0, 2);
   return (
-    <section className="glass rise grid gap-2 rounded-[28px] p-4" style={{ animationDelay: `${delay}ms` }}>
+    <section className="glass rise grid gap-2 rounded-2xl p-4" style={{ animationDelay: `${delay}ms` }}>
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">{alerts.length === 1 ? "Algo subió de precio" : `${alerts.length} cosas subieron de precio`}</h2>
         <Link href="/suscripciones" className="text-xs text-muted">

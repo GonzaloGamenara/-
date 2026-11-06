@@ -6,7 +6,7 @@ import { useStore } from "@/lib/store";
 import { addMonths, currentMonth, monthLabel, moneyRound, todayISO } from "@/lib/format";
 import { launchMonth } from "@/lib/launch";
 import { mine } from "@/lib/types";
-import { XIcon } from "./Icons";
+import { ChartIcon, XIcon } from "./Icons";
 
 const key = (ym: string) => `gastos.cierre.visto.${ym}`;
 
@@ -30,9 +30,9 @@ export function CierreBanner({ delay = 0 }: { delay?: number }) {
   const nombre = monthLabel(mes).split(" ")[0].toLowerCase();
 
   return (
-    <div className="glass rise flex items-center gap-2 rounded-3xl py-2 pl-3 pr-1.5" style={{ animationDelay: `${delay}ms` }}>
+    <div className="glass rise flex items-center gap-2 rounded-2xl py-2 pl-3 pr-1.5" style={{ animationDelay: `${delay}ms` }}>
       <Link href={`/cierre?mes=${mes}`} className="press flex min-w-0 flex-1 items-center gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">📊</span>
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-inset text-muted"><ChartIcon width={20} height={20} /></span>
         <span className="min-w-0 flex-1">
           <span className="block font-semibold leading-tight">Cerró {nombre}: mirá cómo te fue</span>
           <span className="block truncate text-xs text-muted">

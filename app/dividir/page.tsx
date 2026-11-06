@@ -45,7 +45,7 @@ function Dividir() {
       <PageHeader title="Dividir" subtitle="Cada uno carga lo que pagó y la app te dice quién le debe a quién." right={<EyeToggle />} />
 
       {missing ? (
-        <div className="glass rounded-3xl border-l-4 border-l-exp p-4 text-sm">
+        <div className="glass rounded-2xl border-l-4 border-l-exp p-4 text-sm">
           <b>Falta un paso en Supabase.</b>
           <p className="mt-1 text-muted">
             Corré <code className="text-fg">supabase/migrations/003_cuentas_compartidas.sql</code> en SQL Editor → Run y recargá la app.
@@ -54,7 +54,7 @@ function Dividir() {
       ) : (
         <button
           onClick={() => setCreating(true)}
-          className="press rise flex items-center justify-center gap-2 rounded-3xl bg-accent2 py-4 text-base font-semibold text-black"
+          className="press rise flex items-center justify-center gap-2 rounded-2xl bg-accent2 py-4 text-base font-semibold text-black"
         >
           <PlusIcon width={18} height={18} /> Nueva cuenta compartida
         </button>
@@ -64,7 +64,7 @@ function Dividir() {
         <div className="skeleton h-24" />
       ) : (
         rows.length > 0 && (
-          <ul className="glass rise divide-y divide-line overflow-hidden rounded-3xl">
+          <ul className="glass rise divide-y divide-line overflow-hidden rounded-2xl">
             {rows.map(({ g, people, total, mine, pending }) => (
               <li key={g.id}>
                 <Link href={`/dividir/${g.id}`} className="press flex items-center gap-3 px-4 py-3.5">
@@ -94,7 +94,7 @@ function Dividir() {
       )}
 
       {ready && !missing && rows.length === 0 && (
-        <section className="glass rise grid gap-2 rounded-3xl p-5 text-sm">
+        <section className="glass rise grid gap-2 rounded-2xl p-5 text-sm">
           <h2 className="font-semibold">¿Cómo funciona?</h2>
           <ol className="grid list-decimal gap-1.5 pl-5 text-muted">
             <li>Creás la cuenta (ej: “Asado del sábado”) y sumás a los que estuvieron.</li>
@@ -105,7 +105,7 @@ function Dividir() {
         </section>
       )}
 
-      <section className="glass rise rounded-3xl p-4">
+      <section className="glass rise rounded-2xl p-4">
         <AliasField />
       </section>
 
@@ -139,7 +139,7 @@ function LegacySplits() {
   return (
     <section className="rise">
       <h2 className="mb-1 px-1 text-sm font-semibold">Compras que dividiste</h2>
-      <ul className="glass divide-y divide-line overflow-hidden rounded-3xl">
+      <ul className="glass divide-y divide-line overflow-hidden rounded-2xl">
         {pending.map((s) => (
           <li key={s.id} className="flex items-center gap-2 px-4 py-3 text-sm">
             <span className="min-w-0 flex-1">

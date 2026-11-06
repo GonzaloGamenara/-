@@ -386,7 +386,7 @@ export default function Importar() {
       </header>
 
       {!rows && (
-        <section className="glass rise grid gap-4 rounded-3xl p-4">
+        <section className="glass rise grid gap-4 rounded-2xl p-4">
           <p className="text-sm text-muted">
             Elegí el archivo <span className="font-medium text-fg">.json</span> con tus movimientos. La app marca los que ya tenés cargados
             para no duplicarlos y actualiza tus fijos con el monto real.
@@ -430,7 +430,7 @@ export default function Importar() {
       {rows && (
         <>
           {assetPlan.length > 0 && (
-            <section className="glass rise grid gap-2 rounded-3xl p-4">
+            <section className="glass rise grid gap-2 rounded-2xl p-4">
               <div>
                 <h2 className="font-semibold">Patrimonio</h2>
                 <p className="text-xs text-muted">Lo que ya tenés con ese nombre se actualiza; lo demás se agrega.</p>
@@ -446,7 +446,7 @@ export default function Importar() {
           )}
 
           {purchasePlan.length > 0 && (
-            <section className="glass rise grid gap-2 rounded-3xl p-4">
+            <section className="glass rise grid gap-2 rounded-2xl p-4">
               <div className="flex items-baseline justify-between gap-3">
                 <div>
                   <h2 className="font-semibold">Compras con tarjeta</h2>
@@ -467,7 +467,7 @@ export default function Importar() {
           )}
 
           {(changes.length > 0 || merges.length > 0 || cardChanges.length > 0 || fijoPlan.length > 0 || purchaseChanges.length > 0) && (
-            <section className="glass rise grid gap-2 rounded-3xl p-4">
+            <section className="glass rise grid gap-2 rounded-2xl p-4">
               <div>
                 <h2 className="font-semibold">Correcciones</h2>
                 <p className="text-xs text-muted">Sobre lo que ya tenés cargado. Tocá una para no aplicarla.</p>
@@ -509,7 +509,7 @@ export default function Importar() {
 
           {rows.length > 0 && (
             <>
-              <section className="glass rise grid gap-3 rounded-3xl p-4">
+              <section className="glass rise grid gap-3 rounded-2xl p-4">
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <Stat n={summary.nuevo} label="nuevos" />
                   <Stat n={summary.repetido} label="ya cargados" />
@@ -583,10 +583,7 @@ export default function Importar() {
             <button
               onClick={run}
               disabled={busy || !total}
-              className="press rounded-2xl py-3.5 font-semibold text-accent-ink shadow-lg disabled:opacity-50"
-              style={{
-                background: "linear-gradient(135deg, var(--accent), var(--accent-2))",
-              }}
+              className="press rounded-2xl bg-accent py-3.5 font-semibold text-accent-ink disabled:opacity-50"
             >
               {busy ? "Guardando…" : `${rows.length ? "Importar" : "Aplicar"} ${total}`}
             </button>
@@ -601,7 +598,7 @@ function Stat({ n, label }: { n: number; label: string }) {
   return (
     <div className="rounded-2xl bg-inset py-2.5">
       <div className="num text-xl font-semibold">{n}</div>
-      <div className="text-[11px] text-muted">{label}</div>
+      <div className="text-xs text-muted">{label}</div>
     </div>
   );
 }
@@ -614,17 +611,17 @@ function Row({ r, onToggle }: { r: PlannedRow; onToggle: () => void }) {
     <button
       onClick={onToggle}
       aria-pressed={r.include}
-      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity hover:bg-surface ${r.include ? "" : "opacity-45"}`}
+      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity row-hover ${r.include ? "" : "opacity-45"}`}
     >
       <span
-        className={`grid size-5 shrink-0 place-items-center rounded-full border-2 text-[11px] font-bold ${
+        className={`grid size-5 shrink-0 place-items-center rounded-full border-2 text-xs font-bold ${
           r.include ? "border-transparent bg-accent text-accent-ink" : "border-line"
         }`}
       >
         {r.include ? "✓" : ""}
       </span>
       <span
-        className="grid size-10 shrink-0 place-items-center rounded-2xl text-lg"
+        className="grid size-10 shrink-0 place-items-center rounded-xl text-lg"
         style={{
           background: `color-mix(in srgb, ${cat?.color ?? "#64748b"} 22%, transparent)`,
         }}
@@ -638,12 +635,12 @@ function Row({ r, onToggle }: { r: PlannedRow; onToggle: () => void }) {
           {r.suggested && " ✨ sugerida"} · {dayLabel(r.row.fecha)}
         </span>
         {r.action === "repetido" && r.match && (
-          <span className="mt-0.5 line-clamp-2 block text-[11px] text-amber-500">
+          <span className="mt-0.5 line-clamp-2 block text-xs text-amber-500">
             Ya cargado: {r.match.note || "sin nota"} · {dayLabel(r.match.occurred_on)}
           </span>
         )}
         {r.action === "fijo" && r.match && (
-          <span className="mt-0.5 line-clamp-2 block text-[11px] text-accent">
+          <span className="mt-0.5 line-clamp-2 block text-xs text-accent">
             Actualiza “{r.fijoName}”: <span className="whitespace-nowrap">{money(Number(r.match.amount))}</span> →{" "}
             <span className="whitespace-nowrap">{money(r.amount)}</span>
           </span>
@@ -654,7 +651,7 @@ function Row({ r, onToggle }: { r: PlannedRow; onToggle: () => void }) {
           {isExp ? "−" : "+"}
           {money(shown)}
         </span>
-        {shown < r.amount && <span className="num text-[11px] text-muted">de {money(r.amount)}</span>}
+        {shown < r.amount && <span className="num text-xs text-muted">de {money(r.amount)}</span>}
       </span>
     </button>
   );
@@ -663,7 +660,7 @@ function Row({ r, onToggle }: { r: PlannedRow; onToggle: () => void }) {
 function Check({ on }: { on: boolean }) {
   return (
     <span
-      className={`grid size-5 shrink-0 place-items-center rounded-full border-2 text-[11px] font-bold ${
+      className={`grid size-5 shrink-0 place-items-center rounded-full border-2 text-xs font-bold ${
         on ? "border-transparent bg-accent text-accent-ink" : "border-line"
       }`}
     >
@@ -687,10 +684,10 @@ function ChangeRow({ c, onToggle }: { c: PlannedChange; onToggle: () => void }) 
       onClick={onToggle}
       disabled={!t}
       aria-pressed={c.include}
-      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity hover:bg-surface ${c.include ? "" : "opacity-45"}`}
+      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity row-hover ${c.include ? "" : "opacity-45"}`}
     >
       <Check on={c.include} />
-      <span className={`grid size-10 shrink-0 place-items-center rounded-2xl text-lg ${del ? "bg-exp/15" : "bg-inset"}`}>
+      <span className={`grid size-10 shrink-0 place-items-center rounded-xl text-lg ${del ? "bg-exp/15" : "bg-inset"}`}>
         {del ? "🗑️" : "✏️"}
       </span>
       <span className="min-w-0 flex-1">
@@ -702,7 +699,7 @@ function ChangeRow({ c, onToggle }: { c: PlannedChange; onToggle: () => void }) 
           {edits.length > 0 && !c.problem && ` · ${edits.join(" · ")}`}
         </span>
         {(c.problem || c.change.motivo) && (
-          <span className={`mt-0.5 line-clamp-2 block text-[11px] ${c.problem ? "text-amber-500" : "text-muted"}`}>
+          <span className={`mt-0.5 line-clamp-2 block text-xs ${c.problem ? "text-amber-500" : "text-muted"}`}>
             {c.problem ?? c.change.motivo}
           </span>
         )}
@@ -719,11 +716,11 @@ function PurchaseRow({ x, onToggle }: { x: PlannedPurchase; onToggle: () => void
       onClick={onToggle}
       disabled={!x.card}
       aria-pressed={x.include}
-      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity hover:bg-surface ${x.include ? "" : "opacity-45"}`}
+      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity row-hover ${x.include ? "" : "opacity-45"}`}
     >
       <Check on={x.include} />
       <span
-        className="grid size-10 shrink-0 place-items-center rounded-2xl text-lg"
+        className="grid size-10 shrink-0 place-items-center rounded-xl text-lg"
         style={{ background: `color-mix(in srgb, ${cat?.color ?? "#64748b"} 22%, transparent)` }}
       >
         {cat?.emoji ?? (x.newCategory ? "✨" : "💳")}
@@ -734,9 +731,9 @@ function PurchaseRow({ x, onToggle }: { x: PlannedPurchase; onToggle: () => void
           {cat?.name ?? (x.newCategory ? `${x.newCategory} (nueva)` : "Sin categoría")} · {dayLabel(x.item.fecha)} · {x.item.tarjeta}, resumen {resumen}
           {x.item.cuotas > 1 ? ` · ${x.item.cuotas} cuotas` : ""}
         </span>
-        {x.item.detalle && <span className="block truncate text-[11px] text-muted">{x.item.detalle}</span>}
-        {!x.card && <span className="block text-[11px] text-amber-500">No encontré la tarjeta “{x.item.tarjeta}”</span>}
-        {x.match && <span className="block text-[11px] text-amber-500">Ya cargada: {x.match.description}</span>}
+        {x.item.detalle && <span className="block truncate text-xs text-muted">{x.item.detalle}</span>}
+        {!x.card && <span className="block text-xs text-amber-500">No encontré la tarjeta “{x.item.tarjeta}”</span>}
+        {x.match && <span className="block text-xs text-amber-500">Ya cargada: {x.match.description}</span>}
       </span>
       <span className="num shrink-0 text-[15px] font-semibold">−{money(x.item.monto)}</span>
     </button>
@@ -759,10 +756,10 @@ function PurchaseChangeRow({ x, onToggle }: { x: PlannedPurchaseChange; onToggle
       onClick={onToggle}
       disabled={!!x.problem}
       aria-pressed={x.include}
-      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity hover:bg-surface ${x.include ? "" : "opacity-45"}`}
+      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity row-hover ${x.include ? "" : "opacity-45"}`}
     >
       <Check on={x.include} />
-      <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">💳</span>
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-inset text-lg">💳</span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-medium">Compra: {p?.description ?? x.change.buscar.nota}</span>
         <span className={`line-clamp-2 block text-xs ${x.problem ? "text-amber-500" : "text-muted"}`}>
@@ -781,10 +778,10 @@ function FijoRow({ x, onToggle }: { x: PlannedFijo; onToggle: () => void }) {
       onClick={onToggle}
       disabled={!!x.problem}
       aria-pressed={x.include}
-      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity hover:bg-surface ${x.include ? "" : "opacity-45"}`}
+      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity row-hover ${x.include ? "" : "opacity-45"}`}
     >
       <Check on={x.include} />
-      <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">🔁</span>
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-inset text-lg">🔁</span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-medium">
           {x.existing ? "Actualizar" : "Nuevo fijo"}: {x.existing && x.existing.name !== x.item.nombre ? `${x.existing.name} → ` : ""}
@@ -818,10 +815,10 @@ function MergeRow({ m, onToggle }: { m: PlannedMerge; onToggle: () => void }) {
       onClick={onToggle}
       disabled={!ok}
       aria-pressed={m.include}
-      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity hover:bg-surface ${m.include ? "" : "opacity-45"}`}
+      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity row-hover ${m.include ? "" : "opacity-45"}`}
     >
       <Check on={m.include} />
-      <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">🔀</span>
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-inset text-lg">🔀</span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-medium">
           Unificar {m.from?.emoji} {m.merge.de} → {m.to?.emoji} {m.merge.a}
@@ -843,10 +840,10 @@ function CardRow({ c, onToggle }: { c: PlannedCard; onToggle: () => void }) {
       onClick={onToggle}
       disabled={!c.card}
       aria-pressed={c.include}
-      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity hover:bg-surface ${c.include ? "" : "opacity-45"}`}
+      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity row-hover ${c.include ? "" : "opacity-45"}`}
     >
       <Check on={c.include} />
-      <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">💳</span>
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-inset text-lg">💳</span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-medium">
           {c.change.nombre}: pago el día {c.card?.due_day ?? "?"} → {c.change.dia_de_pago}
@@ -876,10 +873,10 @@ function AssetRow({ a, onToggle }: { a: PlannedAsset; onToggle: () => void }) {
     <button
       onClick={onToggle}
       aria-pressed={a.include}
-      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity hover:bg-surface ${a.include ? "" : "opacity-45"}`}
+      className={`press flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-opacity row-hover ${a.include ? "" : "opacity-45"}`}
     >
       <Check on={a.include} />
-      <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">{KIND_EMOJI[it.tipo]}</span>
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-inset text-lg">{KIND_EMOJI[it.tipo]}</span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-medium">
           {it.nombre}

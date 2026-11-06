@@ -69,7 +69,7 @@ export function BudgetForm({ initial, onClose }: { initial: Partial<Budget>; onC
                   }`}
                 >
                   {c.emoji} {c.name}
-                  {other && <span className="text-[11px]">· en {other.name}</span>}
+                  {other && <span className="text-xs">· en {other.name}</span>}
                 </button>
               );
             })}

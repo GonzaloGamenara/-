@@ -41,7 +41,7 @@ function Countdown() {
   const m = Math.floor((left % 3.6e6) / 6e4);
   const s = Math.floor((left % 6e4) / 1e3);
   return (
-    <div className="glass num flex items-center gap-2 rounded-3xl px-6 py-4 text-4xl font-semibold" aria-label="Tiempo restante">
+    <div className="glass num flex items-center gap-2 rounded-2xl px-6 py-4 text-4xl font-semibold" aria-label="Tiempo restante">
       <span>{pad(h)}</span><span className="text-muted">:</span>
       <span>{pad(m)}</span><span className="text-muted">:</span>
       <span>{pad(s)}</span>
@@ -55,8 +55,7 @@ export function PrelaunchCard() {
   return (
     <section className="rise grid justify-items-center gap-6 px-2 pb-6 pt-14 text-center">
       <div
-        className="pop grid size-16 place-items-center rounded-[28%] text-3xl font-extrabold text-[#10130a]"
-        style={{ background: "linear-gradient(135deg, #c4f542, #5eead4)" }}
+        className="pop grid size-16 place-items-center rounded-[28%] bg-[#2b44c9] text-3xl font-extrabold text-white"
       >
         $
       </div>
@@ -67,7 +66,7 @@ export function PrelaunchCard() {
         </p>
       </div>
       <Countdown />
-      <div className="glass w-full max-w-sm rounded-3xl p-5 text-left">
+      <div className="glass w-full max-w-sm rounded-2xl p-5 text-left">
         <h2 className="font-medium">Mientras tanto, dejá todo listo</h2>
         <p className="mt-1 text-sm text-muted">
           Cargá tus fijos (sueldo, beca, alquiler, suscripciones) y ajustá tus categorías. Se empiezan a registrar solos desde el primer día.

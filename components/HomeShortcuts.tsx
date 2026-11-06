@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { compact } from "@/lib/format";
 import { loadPatrimonio } from "@/lib/patrimonio";
-import { ChevronRight } from "./Icons";
+import { BankIcon, ChevronRight } from "./Icons";
 
 /** Acceso de Inicio a tu patrimonio (con el último valor conocido) */
 export function HomeShortcuts({ delay = 0 }: { delay?: number }) {
@@ -21,8 +21,8 @@ export function HomeShortcuts({ delay = 0 }: { delay?: number }) {
   }, []);
 
   return (
-    <Link href="/patrimonio" className="glass press rise flex items-center gap-3 rounded-3xl px-4 py-3.5" style={{ animationDelay: `${delay}ms` }}>
-      <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">🏦</span>
+    <Link href="/patrimonio" className="glass press rise flex items-center gap-3 rounded-2xl px-4 py-3.5" style={{ animationDelay: `${delay}ms` }}>
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-inset text-muted"><BankIcon width={20} height={20} /></span>
       <span className="min-w-0 flex-1">
         <span className="block font-medium">Patrimonio</span>
         <span className="block truncate text-xs text-muted">{net == null ? "Cargá tus cuentas e inversiones" : "Cuentas + inversiones"}</span>

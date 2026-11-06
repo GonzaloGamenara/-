@@ -72,7 +72,7 @@ export default function Suscripciones() {
       <MigrationNotice />
 
       {!empty && (
-        <section className="glass rise grid gap-3 rounded-[28px] p-5">
+        <section className="glass elevated rise grid gap-3 rounded-2xl p-5">
           <div>
             <p className="text-sm text-muted">
               {totals.subsCount === 1 ? "Tu suscripción" : totals.subsCount ? `Tus ${totals.subsCount} suscripciones` : "Suscripciones activas"}
@@ -85,13 +85,13 @@ export default function Suscripciones() {
           <div className="grid grid-cols-2 gap-2 text-center">
             <div className="rounded-2xl bg-inset px-2 py-2.5">
               <div className="num truncate text-lg font-semibold">{money(totals.subsMonthly * 12)}</div>
-              <div className="text-[11px] text-muted">por año</div>
+              <div className="text-xs text-muted">por año</div>
             </div>
             <div className="rounded-2xl bg-inset px-2 py-2.5">
               <div className="num text-lg font-semibold">
                 {income > 0 ? `${((totals.subsMonthly / income) * 100).toFixed(1).replace(".", ",").replace(",0", "")}%` : "—"}
               </div>
-              <div className="text-[11px] text-muted">de lo que entra por mes</div>
+              <div className="text-xs text-muted">de lo que entra por mes</div>
             </div>
           </div>
           {totals.fijosMonthly > 0 && (
@@ -104,7 +104,7 @@ export default function Suscripciones() {
       )}
 
       {empty && (
-        <section className="glass rise grid gap-2 rounded-[28px] p-5">
+        <section className="glass rise grid gap-2 rounded-2xl p-5">
           <h2 className="font-semibold">Nada que se cobre solo, por ahora</h2>
           <p className="text-sm text-muted">
             Cargá tus suscripciones (Spotify, Netflix, iCloud…) y servicios como fijos y acá vas a ver cuánto te cuestan por año y si suben de precio.
@@ -125,8 +125,8 @@ export default function Suscripciones() {
             const up = c.to > c.from;
             return (
               <li key={i.r.id}>
-                <button onClick={() => setEditing({ r: i.r })} className="press flex w-full items-center gap-3 px-4 py-3 text-left">
-                  <span className={`grid size-10 shrink-0 place-items-center rounded-2xl text-lg font-semibold ${up ? "bg-exp/12 text-exp" : "bg-inc/12 text-inc"}`}>
+                <button onClick={() => setEditing({ r: i.r })} className="press row-hover flex w-full items-center gap-3 px-4 py-3 text-left">
+                  <span className={`grid size-10 shrink-0 place-items-center rounded-xl text-lg font-semibold ${up ? "bg-exp/12 text-exp" : "bg-inc/12 text-inc"}`}>
                     {up ? "↑" : "↓"}
                   </span>
                   <span className="min-w-0 flex-1">
@@ -142,7 +142,7 @@ export default function Suscripciones() {
                   </span>
                   <span className="shrink-0 text-right">
                     <span className={`num block font-semibold ${up ? "text-exp" : "text-inc"}`}>{pct(c.pct)}</span>
-                    <span className="num block text-[11px] text-muted">
+                    <span className="num block text-xs text-muted">
                       {up ? "+" : "−"}
                       {money(Math.abs(c.to - c.from) * 12)}/año
                     </span>
@@ -174,12 +174,12 @@ export default function Suscripciones() {
         <section className="rise">
           <h2 className="mb-0.5 px-1 text-sm font-semibold">¿Son suscripciones?</h2>
           <p className="mb-2 px-1 text-xs text-muted">Gastos que se repiten o parecen suscripciones y no están en tus fijos.</p>
-          <ul className="glass divide-y divide-line overflow-hidden rounded-3xl">
+          <ul className="glass divide-y divide-line overflow-hidden rounded-2xl">
             {candidates.map((c) => (
               <li key={c.key} className="grid gap-2.5 px-4 py-3">
                 <div className="flex items-center gap-3">
                   <span
-                    className="grid size-10 shrink-0 place-items-center rounded-2xl text-lg"
+                    className="grid size-10 shrink-0 place-items-center rounded-xl text-lg"
                     style={{ background: `color-mix(in srgb, ${cat(c.categoryId)?.color ?? "#64748b"} 22%, transparent)` }}
                   >
                     {cat(c.categoryId)?.emoji ?? "🔁"}
@@ -192,7 +192,7 @@ export default function Suscripciones() {
                   </span>
                   <span className="shrink-0 text-right">
                     <span className="num block font-semibold">{money(c.amount)}</span>
-                    {c.change && <span className={`num block text-[11px] ${c.change.pct > 0 ? "text-exp" : "text-inc"}`}>{pct(c.change.pct)}</span>}
+                    {c.change && <span className={`num block text-xs ${c.change.pct > 0 ? "text-exp" : "text-inc"}`}>{pct(c.change.pct)}</span>}
                   </span>
                 </div>
                 <div className="grid grid-cols-[1fr_auto] gap-2 pl-[3.25rem]">
@@ -215,7 +215,7 @@ export default function Suscripciones() {
           <p className="mb-2 px-1 text-xs text-muted">
             Te ahorrás <b className="num text-inc">{money(totals.pausedMonthly * 12)}</b> por año.
           </p>
-          <ul className="glass divide-y divide-line overflow-hidden rounded-3xl">
+          <ul className="glass divide-y divide-line overflow-hidden rounded-2xl">
             {paused.map((i) => (
               <ItemRow key={i.r.id} i={i} emoji={cat(i.r.category_id)?.emoji ?? "⏸️"} color={cat(i.r.category_id)?.color} thisMonth={thisMonth} onClick={() => setEditing({ r: i.r })} />
             ))}
@@ -248,7 +248,7 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   return (
     <section className="rise">
       <h2 className="mb-1 px-1 text-sm font-semibold">{title}</h2>
-      <ul className="glass divide-y divide-line overflow-hidden rounded-3xl">{children}</ul>
+      <ul className="glass divide-y divide-line overflow-hidden rounded-2xl">{children}</ul>
     </section>
   );
 }
@@ -259,15 +259,15 @@ function ItemRow({ i, emoji, color, thisMonth, onClick }: { i: SubItem; emoji: s
   const sub = i.nextDate ? `${where} · próx. ${corto(i.nextDate)}` : i.lastCharge ? `Último cobro ${corto(i.lastCharge.date)}` : where;
   return (
     <li className={i.r.active ? "" : "opacity-60"}>
-      <button onClick={onClick} className="press flex w-full items-center gap-3 px-4 py-3 text-left">
-        <span className="grid size-10 shrink-0 place-items-center rounded-2xl text-lg" style={{ background: `color-mix(in srgb, ${color ?? "#64748b"} 22%, transparent)` }}>
+      <button onClick={onClick} className="press row-hover flex w-full items-center gap-3 px-4 py-3 text-left">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl text-lg" style={{ background: `color-mix(in srgb, ${color ?? "#64748b"} 22%, transparent)` }}>
           {emoji}
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
             <span className="truncate font-medium">{i.r.name}</span>
             {c && (
-              <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none ${c.to > c.from ? "bg-exp/12 text-exp" : "bg-inc/12 text-inc"}`}>
+              <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-xs font-semibold leading-none ${c.to > c.from ? "bg-exp/12 text-exp" : "bg-inc/12 text-inc"}`}>
                 {c.to > c.from ? "↑" : "↓"} {pct(c.pct)}
               </span>
             )}
@@ -276,7 +276,7 @@ function ItemRow({ i, emoji, color, thisMonth, onClick }: { i: SubItem; emoji: s
         </span>
         <span className="shrink-0 text-right">
           <span className="num block font-semibold">{money(i.monthly)}</span>
-          <span className="num block text-[11px] text-muted">{money(i.yearly)}/año</span>
+          <span className="num block text-xs text-muted">{money(i.yearly)}/año</span>
         </span>
       </button>
     </li>

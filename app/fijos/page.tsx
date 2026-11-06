@@ -82,27 +82,27 @@ export default function Fijos() {
       <MigrationNotice />
 
       {!empty && (
-        <section className="glass rise grid grid-cols-3 divide-x divide-line rounded-[28px] py-4 text-center">
+        <section className="glass elevated rise grid grid-cols-3 divide-x divide-line rounded-2xl py-4 text-center">
           <div className="px-2">
-            <p className="text-[11px] text-muted">Entra</p>
+            <p className="text-xs text-muted">Entra</p>
             <p className="num truncate text-base font-semibold text-inc">{money(incomeTotal)}</p>
           </div>
           <div className="px-2">
-            <p className="text-[11px] text-muted">Sale</p>
+            <p className="text-xs text-muted">Sale</p>
             <p className="num truncate text-base font-semibold">{money(expenseTotal)}</p>
           </div>
           <div className="px-2">
-            <p className="text-[11px] text-muted">Queda</p>
+            <p className="text-xs text-muted">Queda</p>
             <p className={`num truncate text-base font-semibold ${incomeTotal - expenseTotal < 0 ? "text-exp" : ""}`}>
               {money(incomeTotal - expenseTotal)}
             </p>
           </div>
-          <p className="col-span-3 mt-2 border-0 text-[11px] text-muted">por mes, con cuotas y suscripciones incluidas</p>
+          <p className="col-span-3 mt-2 border-0 text-xs text-muted">por mes, con cuotas y suscripciones incluidas</p>
         </section>
       )}
 
       {empty && (
-        <section className="glass rise grid gap-2 rounded-[28px] p-5">
+        <section className="glass rise grid gap-2 rounded-2xl p-5">
           <h2 className="font-semibold">Empezá por lo que se repite</h2>
           <p className="text-sm text-muted">Tu sueldo o beca, el alquiler, los servicios, tus tarjetas con sus cuotas y suscripciones. Se cargan solos cada mes.</p>
           <button onClick={() => setAdding("menu")} className="press mt-2 rounded-2xl bg-accent py-3.5 font-semibold text-accent-ink">
@@ -148,7 +148,7 @@ export default function Fijos() {
               <span className="num ml-auto shrink-0 whitespace-nowrap text-sm font-semibold">{money(next)}</span>
               <ChevronRight width={16} height={16} className="text-muted" />
             </Link>
-            <ul className="glass divide-y divide-line overflow-hidden rounded-3xl">
+            <ul className="glass divide-y divide-line overflow-hidden rounded-2xl">
               {subs.map((r) => (
                 <Row key={r.id} emoji={cat(r.category_id)?.emoji ?? "🔁"} color={cat(r.category_id)?.color} title={r.name} sub="Suscripción" badge={r.active ? null : "Pausada"} amount={money(r.amount)} dim={!r.active} onClick={() => setEditing(r)} />
               ))}
@@ -257,7 +257,7 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   return (
     <section className="rise">
       <h2 className="mb-1 px-1 text-sm font-semibold">{title}</h2>
-      <ul className="glass divide-y divide-line overflow-hidden rounded-3xl">{children}</ul>
+      <ul className="glass divide-y divide-line overflow-hidden rounded-2xl">{children}</ul>
     </section>
   );
 }
@@ -285,15 +285,15 @@ function Row({
 }) {
   return (
     <li className={dim ? "opacity-50" : ""}>
-      <button onClick={onClick} className="press flex w-full items-center gap-3 px-4 py-3 text-left">
-        <span className="grid size-10 shrink-0 place-items-center rounded-2xl text-lg" style={{ background: `color-mix(in srgb, ${color ?? "#64748b"} 22%, transparent)` }}>
+      <button onClick={onClick} className="press row-hover flex w-full items-center gap-3 px-4 py-3 text-left">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl text-lg" style={{ background: `color-mix(in srgb, ${color ?? "#64748b"} 22%, transparent)` }}>
           {emoji}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate font-medium">{title}</span>
           <span className="mt-0.5 flex items-center gap-2 text-xs text-muted">
             <span className="truncate">{sub}</span>
-            {badge && <span className="shrink-0 rounded-full bg-inset px-2 py-0.5 text-[11px] font-medium leading-none text-fg/80">{badge}</span>}
+            {badge && <span className="shrink-0 rounded-full bg-inset px-2 py-0.5 text-xs font-medium leading-none text-fg/80">{badge}</span>}
           </span>
         </span>
         <span className={`num shrink-0 font-semibold ${tone}`}>{amount}</span>

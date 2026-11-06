@@ -441,7 +441,7 @@ export function QuickAdd() {
       <button
         onClick={save}
         disabled={!valid || busy}
-        className={`press w-full rounded-2xl py-3.5 text-base font-semibold transition-opacity disabled:opacity-35 ${
+        className={`press w-full rounded-2xl py-3.5 text-base font-semibold transition-colors disabled:!bg-inset disabled:!text-muted ${
           mode === "income" ? "bg-inc text-on-inc" : "bg-exp text-on-exp"
         } ${needsConfirm && confirmed ? "ring-4 ring-exp/30" : ""}`}
       >

@@ -59,7 +59,7 @@ export default function Techos() {
       <PlanTabs />
 
       {missing ? (
-        <div className="glass rounded-3xl border-l-4 border-l-exp p-4 text-sm">
+        <div className="glass rounded-2xl border-l-4 border-l-exp p-4 text-sm">
           <b>Falta un paso en Supabase.</b>
           <p className="mt-1 text-muted">
             Corré el archivo <code className="text-fg">supabase/migrations/006_techos.sql</code> en Supabase → SQL Editor → Run, y recargá la app.
@@ -68,7 +68,7 @@ export default function Techos() {
       ) : !ready ? (
         <div className="skeleton h-64" />
       ) : !budgets.length ? (
-        <section className="glass rise grid gap-3 rounded-3xl p-6 text-center">
+        <section className="glass rise grid gap-3 rounded-2xl p-6 text-center">
           <span className="text-4xl">🎯</span>
           <h2 className="text-lg font-semibold">Un techo por categoría</h2>
           <p className="text-sm text-muted">
@@ -97,7 +97,7 @@ export default function Techos() {
                     tabIndex={0}
                     onClick={() => setEditing(b)}
                     onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), setEditing(b))}
-                    className="glass press rise grid w-full cursor-pointer gap-2 rounded-3xl p-4 text-left"
+                    className="glass press rise grid w-full cursor-pointer gap-2 rounded-2xl p-4 text-left"
                   >
                     {s ? <BudgetBar s={s} expectedPct={expected} /> : <div className="skeleton h-10" />}
                     {rules(b) && <p className="text-xs text-muted">{rules(b)}</p>}

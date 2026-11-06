@@ -54,9 +54,9 @@ export function CategoryChips({
               }`}
               style={on && !editMode ? { background: c.color } : undefined}
             >
-              {editMode && <span className="absolute right-1.5 top-1 text-[10px] opacity-70">✎</span>}
+              {editMode && <span className="absolute right-1.5 top-1 text-[11px] opacity-70">✎</span>}
               {!editMode && on && c.id === suggestedId && (
-                <span className="absolute left-1.5 top-1 text-[10px]" title="Sugerida por la nota" aria-label="sugerida">
+                <span className="absolute left-1.5 top-1 text-[11px]" title="Sugerida por la nota" aria-label="sugerida">
                   ✨
                 </span>
               )}

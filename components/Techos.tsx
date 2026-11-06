@@ -59,7 +59,7 @@ export function BudgetBar({ s, expectedPct }: { s: BudgetStatus; expectedPct?: n
           <div className="absolute inset-y-0 w-0.5 bg-fg/40" style={{ left: `${expectedPct * 100}%` }} title="Ritmo parejo a hoy" />
         )}
       </div>
-      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted">
+      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted">
         <span className="num">
           <b className="text-fg">{money(s.spent)}</b> de {money(s.cfg.monthly)}
           {s.level === "over" ? (
@@ -92,8 +92,8 @@ export function TechosCard({ delay = 0 }: { delay?: number }) {
   if (!ready || missing) return null;
   if (!budgets.length) {
     return (
-      <Link href="/techos" className="glass press rise flex items-center gap-3 rounded-3xl px-4 py-3.5" style={{ animationDelay: `${delay}ms` }}>
-        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-inset text-lg">🎯</span>
+      <Link href="/techos" className="glass press rise flex items-center gap-3 rounded-2xl px-4 py-3.5" style={{ animationDelay: `${delay}ms` }}>
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-inset text-lg">🎯</span>
         <span className="min-w-0 flex-1">
           <span className="block font-medium">Poné techos a tus gastos</span>
           <span className="block truncate text-xs text-muted">Te avisa al cargar cuánto te queda en cada categoría</span>
@@ -112,7 +112,7 @@ export function TechosCard({ delay = 0 }: { delay?: number }) {
   const limit = statuses.reduce((a, s) => a + s.cfg.monthly, 0);
 
   return (
-    <section className="glass rise rounded-[28px] p-4" style={{ animationDelay: `${delay}ms` }}>
+    <section className="glass rise rounded-2xl p-4" style={{ animationDelay: `${delay}ms` }}>
       <div className="mb-1 flex items-center justify-between">
         <h2 className="text-sm font-semibold">Techos</h2>
         <Link href="/techos" className="text-xs text-muted">
@@ -126,12 +126,12 @@ export function TechosCard({ delay = 0 }: { delay?: number }) {
         </b>
         {isCurrent ? (left > 0 ? ` · faltan ${left} ${left === 1 ? "día" : "días"}` : " · último día") : ` · ${monthLabel(month).split(" ")[0].toLowerCase()} cerrado`}
       </p>
-      <p className="-mt-3 mb-4 text-[11px] text-muted">Las compras con tarjeta cuentan el día que compraste, no cuando se pagan.</p>
+      <p className="-mt-3 mb-4 text-xs text-muted">Las compras con tarjeta cuentan el día que compraste, no cuando se pagan.</p>
       <ul className="grid gap-2">
         {statuses.map((s) => (
           <li key={s.cfg.id}>
             {/* Tocar un techo muestra sus movimientos */}
-            <Link href={`/movimientos?techo=${s.cfg.id}`} className="press -mx-2 block rounded-2xl px-2 py-1 hover:bg-surface">
+            <Link href={`/movimientos?techo=${s.cfg.id}`} className="press -mx-2 block rounded-2xl px-2 py-1 row-hover">
               <BudgetBar s={s} expectedPct={isCurrent ? day / dim : undefined} />
             </Link>
           </li>
@@ -179,7 +179,7 @@ export function HoyPodes({ delay = 0 }: { delay?: number }) {
   const over = h.left < 0;
   const pct = h.daily > 0 ? Math.min(1, h.spentToday / h.daily) : h.spentToday > 0 ? 1 : 0;
   return (
-    <Link href="/techos" className="glass press rise grid gap-2.5 rounded-[28px] p-4" style={{ animationDelay: `${delay}ms` }}>
+    <Link href="/techos" className="glass elevated press rise grid gap-2.5 rounded-2xl p-4" style={{ animationDelay: `${delay}ms` }}>
       <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm text-muted">{over ? "Hoy te pasaste" : "Hoy podés gastar"}</p>
