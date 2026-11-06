@@ -87,7 +87,7 @@ export default function Techos() {
             Techo total: <b className="num text-fg">{money(total)}</b> por mes. Cuenta tu parte de cada gasto; las compras con tarjeta, en la fecha
             de compra (en cuotas, una cuota por mes).
           </p>
-          <ul className="grid gap-3">
+          <ul className="grid gap-3 2xl:grid-cols-2 2xl:gap-x-6">
             {budgets.map((b) => {
               const s = byId.get(b.id);
               return (

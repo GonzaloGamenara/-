@@ -118,110 +118,113 @@ export default function Suscripciones() {
         </section>
       )}
 
-      {changes.length > 0 && (
-        <Group title="Cambios de precio">
-          {changes.map((i) => {
-            const c = i.change!;
-            const up = c.to > c.from;
-            return (
-              <li key={i.r.id}>
-                <button onClick={() => setEditing({ r: i.r })} className="press row-hover flex w-full items-center gap-3 px-4 py-3 text-left">
-                  <span className={`grid size-10 shrink-0 place-items-center rounded-xl text-lg font-semibold ${up ? "bg-exp/12 text-exp" : "bg-inc/12 text-inc"}`}>
-                    {up ? "↑" : "↓"}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">
-                      {i.r.name} {up ? "subió" : "bajó"}
+      {/* En pantallas grandes, las secciones se reparten en dos columnas */}
+      <div className="grid gap-5 2xl:block 2xl:columns-2 2xl:gap-6 2xl:[&>*]:mb-5 2xl:[&>*]:break-inside-avoid">
+        {changes.length > 0 && (
+          <Group title="Cambios de precio">
+            {changes.map((i) => {
+              const c = i.change!;
+              const up = c.to > c.from;
+              return (
+                <li key={i.r.id}>
+                  <button onClick={() => setEditing({ r: i.r })} className="press row-hover flex w-full items-center gap-3 px-4 py-3 text-left">
+                    <span className={`grid size-10 shrink-0 place-items-center rounded-xl text-lg font-semibold ${up ? "bg-exp/12 text-exp" : "bg-inc/12 text-inc"}`}>
+                      {up ? "↑" : "↓"}
                     </span>
-                    <span className="block text-xs text-muted">
-                      <span className="num">
-                        {money(c.from)} → {money(c.to)}
-                      </span>{" "}
-                      · {cuando(c)}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">
+                        {i.r.name} {up ? "subió" : "bajó"}
+                      </span>
+                      <span className="block text-xs text-muted">
+                        <span className="num">
+                          {money(c.from)} → {money(c.to)}
+                        </span>{" "}
+                        · {cuando(c)}
+                      </span>
                     </span>
-                  </span>
-                  <span className="shrink-0 text-right">
-                    <span className={`num block font-semibold ${up ? "text-exp" : "text-inc"}`}>{pct(c.pct)}</span>
-                    <span className="num block text-xs text-muted">
-                      {up ? "+" : "−"}
-                      {money(Math.abs(c.to - c.from) * 12)}/año
+                    <span className="shrink-0 text-right">
+                      <span className={`num block font-semibold ${up ? "text-exp" : "text-inc"}`}>{pct(c.pct)}</span>
+                      <span className="num block text-xs text-muted">
+                        {up ? "+" : "−"}
+                        {money(Math.abs(c.to - c.from) * 12)}/año
+                      </span>
                     </span>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </Group>
-      )}
-
-      {subs.length > 0 && (
-        <Group title="Suscripciones">
-          {subs.map((i) => (
-            <ItemRow key={i.r.id} i={i} emoji={cat(i.r.category_id)?.emoji ?? "🔁"} color={cat(i.r.category_id)?.color} thisMonth={thisMonth} onClick={() => setEditing({ r: i.r })} />
-          ))}
-        </Group>
-      )}
-
-      {fijos.length > 0 && (
-        <Group title="Servicios y otros fijos">
-          {fijos.map((i) => (
-            <ItemRow key={i.r.id} i={i} emoji={cat(i.r.category_id)?.emoji ?? "🏠"} color={cat(i.r.category_id)?.color} thisMonth={thisMonth} onClick={() => setEditing({ r: i.r })} />
-          ))}
-        </Group>
-      )}
-
-      {candidates.length > 0 && (
-        <section className="rise">
-          <h2 className="mb-0.5 px-1 text-sm font-semibold">¿Son suscripciones?</h2>
-          <p className="mb-2 px-1 text-xs text-muted">Gastos que se repiten o parecen suscripciones y no están en tus fijos.</p>
-          <ul className="glass divide-y divide-line overflow-hidden rounded-2xl">
-            {candidates.map((c) => (
-              <li key={c.key} className="grid gap-2.5 px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <span
-                    className="grid size-10 shrink-0 place-items-center rounded-xl text-lg"
-                    style={{ background: `color-mix(in srgb, ${cat(c.categoryId)?.color ?? "#64748b"} 22%, transparent)` }}
-                  >
-                    {cat(c.categoryId)?.emoji ?? "🔁"}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{c.name}</span>
-                    <span className="block text-xs text-muted">
-                      {c.why === "repite" ? `Se repite hace ${c.months} meses` : c.why === "servicio" ? "Parece un servicio" : "Está en Suscripciones"} · último {corto(c.lastDate)}
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-right">
-                    <span className="num block font-semibold">{money(c.amount)}</span>
-                    {c.change && <span className={`num block text-xs ${c.change.pct > 0 ? "text-exp" : "text-inc"}`}>{pct(c.change.pct)}</span>}
-                  </span>
-                </div>
-                <div className="grid grid-cols-[1fr_auto] gap-2 pl-[3.25rem]">
-                  <button onClick={() => addCandidate(c)} className="press rounded-xl bg-accent py-2 text-sm font-semibold text-accent-ink">
-                    Agregar como fijo
                   </button>
-                  <button onClick={() => dismiss(c.key)} className="press rounded-xl bg-inset px-4 py-2 text-sm font-medium text-muted">
-                    No es
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+                </li>
+              );
+            })}
+          </Group>
+        )}
 
-      {paused.length > 0 && (
-        <section className="rise">
-          <h2 className="mb-0.5 px-1 text-sm font-semibold">Pausadas</h2>
-          <p className="mb-2 px-1 text-xs text-muted">
-            Te ahorrás <b className="num text-inc">{money(totals.pausedMonthly * 12)}</b> por año.
-          </p>
-          <ul className="glass divide-y divide-line overflow-hidden rounded-2xl">
-            {paused.map((i) => (
-              <ItemRow key={i.r.id} i={i} emoji={cat(i.r.category_id)?.emoji ?? "⏸️"} color={cat(i.r.category_id)?.color} thisMonth={thisMonth} onClick={() => setEditing({ r: i.r })} />
+        {subs.length > 0 && (
+          <Group title="Suscripciones">
+            {subs.map((i) => (
+              <ItemRow key={i.r.id} i={i} emoji={cat(i.r.category_id)?.emoji ?? "🔁"} color={cat(i.r.category_id)?.color} thisMonth={thisMonth} onClick={() => setEditing({ r: i.r })} />
             ))}
-          </ul>
-        </section>
-      )}
+          </Group>
+        )}
+
+        {fijos.length > 0 && (
+          <Group title="Servicios y otros fijos">
+            {fijos.map((i) => (
+              <ItemRow key={i.r.id} i={i} emoji={cat(i.r.category_id)?.emoji ?? "🏠"} color={cat(i.r.category_id)?.color} thisMonth={thisMonth} onClick={() => setEditing({ r: i.r })} />
+            ))}
+          </Group>
+        )}
+
+        {candidates.length > 0 && (
+          <section className="rise">
+            <h2 className="mb-0.5 px-1 text-sm font-semibold">¿Son suscripciones?</h2>
+            <p className="mb-2 px-1 text-xs text-muted">Gastos que se repiten o parecen suscripciones y no están en tus fijos.</p>
+            <ul className="glass divide-y divide-line overflow-hidden rounded-2xl">
+              {candidates.map((c) => (
+                <li key={c.key} className="grid gap-2.5 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="grid size-10 shrink-0 place-items-center rounded-xl text-lg"
+                      style={{ background: `color-mix(in srgb, ${cat(c.categoryId)?.color ?? "#64748b"} 22%, transparent)` }}
+                    >
+                      {cat(c.categoryId)?.emoji ?? "🔁"}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{c.name}</span>
+                      <span className="block text-xs text-muted">
+                        {c.why === "repite" ? `Se repite hace ${c.months} meses` : c.why === "servicio" ? "Parece un servicio" : "Está en Suscripciones"} · último {corto(c.lastDate)}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <span className="num block font-semibold">{money(c.amount)}</span>
+                      {c.change && <span className={`num block text-xs ${c.change.pct > 0 ? "text-exp" : "text-inc"}`}>{pct(c.change.pct)}</span>}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-[1fr_auto] gap-2 pl-[3.25rem]">
+                    <button onClick={() => addCandidate(c)} className="press rounded-xl bg-accent py-2 text-sm font-semibold text-accent-ink">
+                      Agregar como fijo
+                    </button>
+                    <button onClick={() => dismiss(c.key)} className="press rounded-xl bg-inset px-4 py-2 text-sm font-medium text-muted">
+                      No es
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {paused.length > 0 && (
+          <section className="rise">
+            <h2 className="mb-0.5 px-1 text-sm font-semibold">Pausadas</h2>
+            <p className="mb-2 px-1 text-xs text-muted">
+              Te ahorrás <b className="num text-inc">{money(totals.pausedMonthly * 12)}</b> por año.
+            </p>
+            <ul className="glass divide-y divide-line overflow-hidden rounded-2xl">
+              {paused.map((i) => (
+                <ItemRow key={i.r.id} i={i} emoji={cat(i.r.category_id)?.emoji ?? "⏸️"} color={cat(i.r.category_id)?.color} thisMonth={thisMonth} onClick={() => setEditing({ r: i.r })} />
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
 
       {!needsMigration && ready && items.length > 0 && (
         <p className="px-1 text-xs text-muted">

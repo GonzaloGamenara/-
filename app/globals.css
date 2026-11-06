@@ -88,6 +88,10 @@ body {
   -webkit-font-smoothing: antialiased;
   font-feature-settings: "ss01", "cv11";
 }
+/* Pantallas grandes (2K y más): todo un poco más grande, sin tocar el celu ni las notebooks */
+@media (min-width: 1800px) { html { font-size: 17px; } }
+@media (min-width: 2300px) { html { font-size: 18px; } }
+
 .num { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 /* Superficie: plana, con línea fina (como una hoja de libreta). Sin vidrio. */
 .glass {

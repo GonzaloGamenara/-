@@ -85,7 +85,7 @@ export default function Patrimonio() {
           </Link>
         </section>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,25rem)_minmax(0,1fr)] lg:items-start lg:gap-6">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,25rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,28rem)_minmax(0,1fr)] lg:items-start lg:gap-6">
           <div className="lg:sticky lg:top-8">
               <section className="glass elevated rise relative overflow-hidden rounded-2xl p-5">
                 <p className="relative text-sm text-muted">{p.cardDebt > 0 ? "Tenés, descontando las tarjetas" : "Tenés en total"}</p>
@@ -139,7 +139,7 @@ export default function Patrimonio() {
                 {p.snapshots.length >= 2 && <Evolution snapshots={p.snapshots} />}
               </section>
           </div>
-          <div className="grid min-w-0 gap-4">
+          <div className="grid min-w-0 gap-4 2xl:block 2xl:columns-2 2xl:gap-6 2xl:[&>*]:mb-4 2xl:[&>*]:break-inside-avoid">
             {!accountsReady && hasCuentas && (
               <div className="glass rounded-2xl border-l-4 border-l-amber-500 p-4 text-sm">
                 <b>Para que los saldos se muevan solos con lo que cargás</b>
@@ -171,7 +171,7 @@ export default function Patrimonio() {
 
             <button
               onClick={() => setEditing({ asset: { kind: "cuenta" } })}
-              className="press flex items-center justify-center gap-1.5 rounded-2xl border border-dashed border-line py-3.5 text-sm font-semibold text-muted"
+              className="press flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-line py-3.5 text-sm font-semibold text-muted"
             >
               <PlusIcon width={16} height={16} /> Agregar cuenta o inversión
             </button>

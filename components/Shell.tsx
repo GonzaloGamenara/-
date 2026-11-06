@@ -45,8 +45,20 @@ const SIDE: { href: string; label: string; icon: ReactNode; also?: string[]; sub
 const sideActive = (path: string, href: string, also: string[] = []) =>
   href === "/" ? path === "/" : [href, ...also].some((a) => path === a || path.startsWith(a + "/"));
 
-/** Páginas que en escritorio usan todo el ancho (dos columnas); el resto, ancho de lectura */
+/**
+ * Ancho del contenido en escritorio:
+ * - WIDE: tableros (Inicio a 2 columnas, a 3 en pantallas grandes; Patrimonio y Cierre a 2).
+ * - SPLIT: listas de Plan que en pantallas grandes se reparten en 2 columnas.
+ * - El resto (Movimientos, Perfil, formularios): ancho de lectura.
+ */
 const WIDE = ["/", "/patrimonio", "/cierre"];
+const SPLIT = ["/fijos", "/suscripciones", "/techos"];
+const widthFor = (path: string) =>
+  WIDE.includes(path)
+    ? "lg:max-w-[72rem] 2xl:max-w-[108rem]"
+    : SPLIT.includes(path)
+      ? "lg:max-w-[46rem] 2xl:max-w-[92rem]"
+      : "lg:max-w-[46rem] 2xl:max-w-[54rem]";
 
 function Kbd({ children }: { children: ReactNode }) {
   return (
@@ -159,7 +171,7 @@ export function Shell({ children }: { children: ReactNode }) {
           )}
         </div>
       </aside>
-      <div className={`mx-auto w-full ${WIDE.includes(path) ? "lg:max-w-[72rem]" : "lg:max-w-[46rem]"}`}>
+      <div className={`mx-auto w-full ${widthFor(path)}`}>
       {pendingCount > 0 && (
         <div className="fade-in mb-3 flex lg:hidden items-center gap-2 rounded-2xl border border-line bg-surface px-3 py-2 text-sm text-muted">
           <CloudOffIcon width={16} height={16} />

@@ -64,8 +64,9 @@ export default function Home() {
       ) : (
         <>
           {/* Escritorio: a la izquierda el mes, a la derecha el día. En el celu, una sola columna en este orden (order-*) */}
-          <div className="contents lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-6">
-          <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
+          {/* lg: el mes (A arriba, B abajo) | el día (C). 2xl: A | B | C, tres columnas */}
+          <div className="contents lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-6 lg:gap-y-4 2xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_25rem] 2xl:grid-rows-1">
+          <div className="contents lg:col-start-1 lg:row-start-1 lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
             <div className="order-1 min-w-0 empty:hidden lg:order-none">
             {/* Hero: lo gastado, desglosado, y lo que viene */}
             <section className="glass elevated rise relative overflow-hidden rounded-2xl p-5" style={{ animationDelay: "40ms" }}>
@@ -142,6 +143,8 @@ export default function Home() {
             {/* Lo más accionable del mes */}
             <TechosCard delay={60} />
             </div>
+          </div>
+          <div className="contents lg:col-start-1 lg:row-start-2 lg:flex lg:min-w-0 lg:flex-col lg:gap-4 2xl:col-start-2 2xl:row-start-1">
             <div className="order-9 min-w-0 empty:hidden lg:order-none">
             {/* Por categoría */}
             {s.expenseCats.length > 0 && (
@@ -219,7 +222,7 @@ export default function Home() {
             )}
             </div>
           </div>
-          <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
+          <div className="contents lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:flex lg:min-w-0 lg:flex-col lg:gap-4 2xl:col-start-3 2xl:row-span-1">
             <div className="order-2 min-w-0 empty:hidden lg:order-none">
             {/* Lo más accionable del día */}
             {s.isCurrent && <HoyPodes delay={50} />}

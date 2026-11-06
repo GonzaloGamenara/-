@@ -12,7 +12,7 @@ export function PlanTabs() {
     { href: "/techos", label: "Techos" },
   ];
   return (
-    <nav className="rise grid grid-cols-3 rounded-full bg-inset p-1 text-sm font-semibold" aria-label="Plan">
+    <nav className="rise grid grid-cols-3 rounded-full bg-inset p-1 text-sm font-semibold 2xl:max-w-2xl" aria-label="Plan">
       {tabs.map((t) => {
         const on = path === t.href;
         return (

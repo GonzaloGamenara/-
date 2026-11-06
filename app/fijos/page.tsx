@@ -111,92 +111,95 @@ export default function Fijos() {
         </section>
       )}
 
-      {incomes.length > 0 && (
-        <Group title="Ingresos">
-          {incomes.map((r) => (
-            <Row key={r.id} emoji={cat(r.category_id)?.emoji ?? "💼"} color={cat(r.category_id)?.color} title={r.name} sub={fijoDayLabel(r)} badge={status(r)} amount={money(r.amount)} tone="text-inc" dim={!r.active} onClick={() => setEditing(r)} />
-          ))}
-        </Group>
-      )}
+      {/* En pantallas grandes, las secciones se reparten en dos columnas */}
+      <div className="grid gap-5 2xl:block 2xl:columns-2 2xl:gap-6 2xl:[&>*]:mb-5 2xl:[&>*]:break-inside-avoid">
+        {incomes.length > 0 && (
+          <Group title="Ingresos">
+            {incomes.map((r) => (
+              <Row key={r.id} emoji={cat(r.category_id)?.emoji ?? "💼"} color={cat(r.category_id)?.color} title={r.name} sub={fijoDayLabel(r)} badge={status(r)} amount={money(r.amount)} tone="text-inc" dim={!r.active} onClick={() => setEditing(r)} />
+            ))}
+          </Group>
+        )}
 
-      {expenses.length > 0 && (
-        <Group title="Gastos">
-          {expenses.map((r) => (
-            <Row key={r.id} emoji={cat(r.category_id)?.emoji ?? "🏠"} color={cat(r.category_id)?.color} title={r.name} sub={fijoDayLabel(r)} badge={status(r)} amount={money(r.amount)} dim={!r.active} onClick={() => setEditing(r)} />
-          ))}
-        </Group>
-      )}
+        {expenses.length > 0 && (
+          <Group title="Gastos">
+            {expenses.map((r) => (
+              <Row key={r.id} emoji={cat(r.category_id)?.emoji ?? "🏠"} color={cat(r.category_id)?.color} title={r.name} sub={fijoDayLabel(r)} badge={status(r)} amount={money(r.amount)} dim={!r.active} onClick={() => setEditing(r)} />
+            ))}
+          </Group>
+        )}
 
-      {/* Cada tarjeta, con sus suscripciones y cuotas */}
-      {summary.map(({ card, next, dueOn, period }) => {
-        const subs = recurring.filter((r) => r.card_id === card.id);
-        const plans = plansOf(card.id);
-        // Compras en 1 pago que entran en el próximo resumen
-        const oneOffs = cardRows
-          .filter((t) => t.card_id === card.id && t.occurred_on.startsWith(period) && t.purchase_id)
-          .map((t) => ({ t, p: purchases.find((p) => p.id === t.purchase_id) }))
-          .filter((x): x is { t: typeof x.t; p: Purchase } => !!x.p && x.p.installments === 1);
-        const periodShort = monthLabel(period).split(" ")[0].slice(0, 3).toLowerCase();
-        return (
-          <section key={card.id} className="rise">
-            <Link href={`/tarjetas/${card.id}`} className="press mb-1 flex items-center gap-2 px-1">
-              <span className="h-4 w-6 shrink-0 rounded-[5px]" style={{ background: `linear-gradient(135deg, ${card.color}, color-mix(in srgb, ${card.color} 50%, #000))` }} />
-              <span className="min-w-0 truncate text-sm font-semibold">{card.name}</span>
-              <span className="shrink-0 whitespace-nowrap text-xs text-muted">
-                · {card.closing_day ? `cierra ${card.closing_day} · ` : ""}paga {card.due_day}
-              </span>
-              <span className="num ml-auto shrink-0 whitespace-nowrap text-sm font-semibold">{money(next)}</span>
-              <ChevronRight width={16} height={16} className="text-muted" />
-            </Link>
-            <ul className="glass divide-y divide-line overflow-hidden rounded-2xl">
-              {subs.map((r) => (
-                <Row key={r.id} emoji={cat(r.category_id)?.emoji ?? "🔁"} color={cat(r.category_id)?.color} title={r.name} sub="Suscripción" badge={r.active ? null : "Pausada"} amount={money(r.amount)} dim={!r.active} onClick={() => setEditing(r)} />
-              ))}
-              {plans.map((p) => {
-                const k = installmentFor(p, refMonth);
-                const left = remaining(p, refMonth);
-                const nx = nextInstallment(p, refMonth);
-                const nxMonth = nx ? monthLabel(nx.period).split(" ")[0].slice(0, 3).toLowerCase() : "";
-                return (
+        {/* Cada tarjeta, con sus suscripciones y cuotas */}
+        {summary.map(({ card, next, dueOn, period }) => {
+          const subs = recurring.filter((r) => r.card_id === card.id);
+          const plans = plansOf(card.id);
+          // Compras en 1 pago que entran en el próximo resumen
+          const oneOffs = cardRows
+            .filter((t) => t.card_id === card.id && t.occurred_on.startsWith(period) && t.purchase_id)
+            .map((t) => ({ t, p: purchases.find((p) => p.id === t.purchase_id) }))
+            .filter((x): x is { t: typeof x.t; p: Purchase } => !!x.p && x.p.installments === 1);
+          const periodShort = monthLabel(period).split(" ")[0].slice(0, 3).toLowerCase();
+          return (
+            <section key={card.id} className="rise">
+              <Link href={`/tarjetas/${card.id}`} className="press mb-1 flex items-center gap-2 px-1">
+                <span className="h-4 w-6 shrink-0 rounded-[5px]" style={{ background: `linear-gradient(135deg, ${card.color}, color-mix(in srgb, ${card.color} 50%, #000))` }} />
+                <span className="min-w-0 truncate text-sm font-semibold">{card.name}</span>
+                <span className="shrink-0 whitespace-nowrap text-xs text-muted">
+                  · {card.closing_day ? `cierra ${card.closing_day} · ` : ""}paga {card.due_day}
+                </span>
+                <span className="num ml-auto shrink-0 whitespace-nowrap text-sm font-semibold">{money(next)}</span>
+                <ChevronRight width={16} height={16} className="text-muted" />
+              </Link>
+              <ul className="glass divide-y divide-line overflow-hidden rounded-2xl">
+                {subs.map((r) => (
+                  <Row key={r.id} emoji={cat(r.category_id)?.emoji ?? "🔁"} color={cat(r.category_id)?.color} title={r.name} sub="Suscripción" badge={r.active ? null : "Pausada"} amount={money(r.amount)} dim={!r.active} onClick={() => setEditing(r)} />
+                ))}
+                {plans.map((p) => {
+                  const k = installmentFor(p, refMonth);
+                  const left = remaining(p, refMonth);
+                  const nx = nextInstallment(p, refMonth);
+                  const nxMonth = nx ? monthLabel(nx.period).split(" ")[0].slice(0, 3).toLowerCase() : "";
+                  return (
+                    <Row
+                      key={p.id}
+                      emoji={cat(p.category_id)?.emoji ?? "💳"}
+                      color={cat(p.category_id)?.color}
+                      title={p.description}
+                      sub={`Quedan ${left.count} ${left.count === 1 ? "cuota" : "cuotas"}`}
+                      badge={k ? `${k}/${p.installments}` : nx ? `${nx.k}/${p.installments} · ${nxMonth}` : null}
+                      amount={money(cuotaDelMes(p) || installmentAmounts(p.total_amount, p.installments)[0])}
+                      onClick={() => openPurchase({ purchase: p })}
+                    />
+                  );
+                })}
+                {oneOffs.map(({ t, p }) => (
                   <Row
-                    key={p.id}
-                    emoji={cat(p.category_id)?.emoji ?? "💳"}
+                    key={t.id}
+                    emoji={cat(p.category_id)?.emoji ?? "🛍️"}
                     color={cat(p.category_id)?.color}
                     title={p.description}
-                    sub={`Quedan ${left.count} ${left.count === 1 ? "cuota" : "cuotas"}`}
-                    badge={k ? `${k}/${p.installments}` : nx ? `${nx.k}/${p.installments} · ${nxMonth}` : null}
-                    amount={money(cuotaDelMes(p) || installmentAmounts(p.total_amount, p.installments)[0])}
+                    sub="Compra en 1 pago"
+                    badge={`resumen ${periodShort}`}
+                    amount={money(t.amount)}
                     onClick={() => openPurchase({ purchase: p })}
                   />
-                );
-              })}
-              {oneOffs.map(({ t, p }) => (
-                <Row
-                  key={t.id}
-                  emoji={cat(p.category_id)?.emoji ?? "🛍️"}
-                  color={cat(p.category_id)?.color}
-                  title={p.description}
-                  sub="Compra en 1 pago"
-                  badge={`resumen ${periodShort}`}
-                  amount={money(t.amount)}
-                  onClick={() => openPurchase({ purchase: p })}
-                />
-              ))}
-              {!subs.length && !plans.length && !oneOffs.length && (
-                <li className="px-4 py-3.5 text-sm text-muted">Sin suscripciones ni cuotas. Próximo pago {dueOn.slice(8, 10)}/{dueOn.slice(5, 7)}.</li>
-              )}
-              <li className="grid grid-cols-2 divide-x divide-line">
-                <button onClick={() => openPurchase({ cardId: card.id })} className="press py-3 text-sm font-medium text-accent2">
-                  + Compra / cuotas
-                </button>
-                <button onClick={() => setEditing({ kind: "expense", card_id: card.id, active: true, day: card.due_day })} className="press py-3 text-sm font-medium text-accent2">
-                  + Suscripción
-                </button>
-              </li>
-            </ul>
-          </section>
-        );
-      })}
+                ))}
+                {!subs.length && !plans.length && !oneOffs.length && (
+                  <li className="px-4 py-3.5 text-sm text-muted">Sin suscripciones ni cuotas. Próximo pago {dueOn.slice(8, 10)}/{dueOn.slice(5, 7)}.</li>
+                )}
+                <li className="grid grid-cols-2 divide-x divide-line">
+                  <button onClick={() => openPurchase({ cardId: card.id })} className="press py-3 text-sm font-medium text-accent2">
+                    + Compra / cuotas
+                  </button>
+                  <button onClick={() => setEditing({ kind: "expense", card_id: card.id, active: true, day: card.due_day })} className="press py-3 text-sm font-medium text-accent2">
+                    + Suscripción
+                  </button>
+                </li>
+              </ul>
+            </section>
+          );
+        })}
+      </div>
 
       {/* Menú de "Agregar" */}
       {adding === "menu" && (
