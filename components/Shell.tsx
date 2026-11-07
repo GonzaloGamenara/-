@@ -9,6 +9,7 @@ import { QuickAdd } from "./QuickAdd";
 import { PurchaseSheet } from "./PurchaseSheet";
 import { useIosViewportFix } from "./useIosViewportFix";
 import { plainKey } from "@/lib/keys";
+import { DemoBanner } from "./DemoBanner";
 import { PrelaunchBanner, PrelaunchCard, usePrelaunch } from "./LaunchGate";
 
 const NAV = [
@@ -180,6 +181,7 @@ export function Shell({ children }: { children: ReactNode }) {
       )}
       {/* Fondo detrás de la barra de estado del iPhone: sólido (el desenfoque ensuciaba el encabezado en iOS) */}
       <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-30 h-[env(safe-area-inset-top)] bg-bg" />
+      <DemoBanner />
       {prelaunch && !blocked && <PrelaunchBanner />}
       {blocked ? <PrelaunchCard /> : children}
       </div>

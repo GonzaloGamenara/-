@@ -12,7 +12,7 @@ import {
 } from "react";
 import { usePrelaunch } from "@/components/LaunchGate";
 import { launchMonth } from "./launch";
-import { supabase } from "./supabase";
+import { exitDemo, isDemo, supabase } from "./supabase";
 import { loadHidden, setHidden } from "./privacy";
 import type { Asset, Card, Category, Kind, Purchase, Recurring, Split, Transaction } from "./types";
 import { defaultAccountId } from "./cuentas";
@@ -826,6 +826,8 @@ export function DataProvider({
   );
 
   const signOut = useCallback(async () => {
+    // En la demo, "Salir" vuelve a la app real (sin tocar ninguna sesión)
+    if (isDemo()) return exitDemo();
     try {
       Object.keys(localStorage)
         .filter((k) => k.startsWith("gastos.snap."))
